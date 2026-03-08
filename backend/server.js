@@ -1,4 +1,6 @@
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+const _iisnodePort = process.env.PORT; // preserve named pipe set by iisnode before dotenv overrides
+require('dotenv').config({ path: require('path').join(__dirname, '.env'), override: true });
+if (_iisnodePort) process.env.PORT = _iisnodePort; // restore so iisnode pipe is used
 
 const express = require('express');
 const session = require('express-session');

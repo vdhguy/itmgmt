@@ -6,7 +6,7 @@ const graph = require('../config/graph');
 const router = express.Router();
 router.use(authMiddleware);
 
-const GROUP_NAME = process.env.AUTOPATCH_GROUP_NAME || 'Lasne Latop Update - Test';
+const GROUP_NAME = process.env.AUTOPATCH_GROUP_NAME || 'Autopatch - Test Ring';
 let groupIdCache = null;
 
 async function getGroupId(token) {
@@ -18,6 +18,11 @@ async function getGroupId(token) {
     groupIdCache = data.value[0].id;
     return groupIdCache;
 }
+
+// GET /api/autopatch/config
+router.get('/config', (req, res) => {
+    res.json({ groupName: GROUP_NAME });
+});
 
 // GET /api/autopatch/members
 router.get('/members', async (req, res) => {

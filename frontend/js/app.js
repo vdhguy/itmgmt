@@ -405,7 +405,12 @@
     $('ap-loading').style.display = 'flex';
     $('ap-members-wrap').style.display = 'none';
     try {
-      autopatchMembers = await api('/api/autopatch/members');
+      const [members, cfg] = await Promise.all([
+        api('/api/autopatch/members'),
+        api('/api/autopatch/config'),
+      ]);
+      autopatchMembers = members;
+      $('ap-group-name').textContent = `Groupe : ${cfg.groupName}`;
     } catch(e) {
       $('ap-loading').innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
       return;

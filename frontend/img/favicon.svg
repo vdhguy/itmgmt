@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background square with rounded corners -->
+  <rect width="32" height="32" rx="6" fill="#3a7a10"/>
+
+  <!-- Inner border glow -->
+  <rect x="2" y="2" width="28" height="28" rx="4" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+
+  <!-- L letterform -->
+  <text x="16" y="23" font-family="Raleway, Georgia, serif" font-weight="800" font-size="20" fill="#ffffff" text-anchor="middle">L</text>
+
+  <!-- Node dot accent -->
+  <circle cx="26" cy="6" r="2.5" fill="rgba(255,255,255,0.45)"/>
+  <circle cx="26" cy="6" r="1.2" fill="rgba(255,255,255,0.9)"/>
+</svg>

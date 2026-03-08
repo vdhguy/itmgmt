@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" fill="none">
+  <!-- Shield / mark -->
+  <rect x="2" y="2" width="36" height="36" rx="6" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>
+
+  <!-- L letterform with node accents -->
+  <text x="20" y="28" font-family="Raleway, sans-serif" font-weight="800" font-size="22" fill="#ffffff" text-anchor="middle">L</text>
+
+  <!-- Dot accent — top-right corner of the mark -->
+  <circle cx="32" cy="8" r="2.5" fill="rgba(255,255,255,0.5)"/>
+
+  <!-- Wordmark -->
+  <text x="52" y="25" font-family="Raleway, sans-serif" font-weight="700" font-size="14" fill="#ffffff" letter-spacing="1">IT UTILITAIRE</text>
+</svg>

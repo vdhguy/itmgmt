@@ -593,7 +593,7 @@
     glpiEl.innerHTML = '<span class="blink">…</span>';
     const email = user.mail || user.userPrincipalName || '';
     api(`/api/users/${user.id}/glpi-tickets?email=${encodeURIComponent(email)}`)
-      .then(({ count, reason }) => {
+      .then(({ count, tickets, reason }) => {
         if (count === null) {
           glpiEl.innerHTML = reason === 'not_configured'
             ? '<span class="glpi-badge na">GLPI non configuré</span>'
@@ -601,7 +601,35 @@
         } else if (count === 0) {
           glpiEl.innerHTML = '<span class="glpi-badge ok">0 ticket ouvert</span>';
         } else {
-          glpiEl.innerHTML = `<span class="glpi-badge warn">${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''}</span>`;
+          const GLPI_STATUS = { 1:'Nouveau', 2:'En cours (assigné)', 3:'En cours (planifié)', 4:'En attente', 5:'Résolu', 6:'Clos' };
+          const rows = (tickets || []).map(t => {
+            const statusLabel = GLPI_STATUS[t.status] || `Statut ${t.status}`;
+            const dateStr = t.date ? new Date(t.date).toLocaleDateString('fr-BE', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
+            return `<tr class="glpi-ticket-row">
+              <td class="glpi-ticket-id">#${t.id}</td>
+              <td class="glpi-ticket-title">${t.title || '—'}</td>
+              <td><span class="glpi-status-badge s${t.status}">${statusLabel}</span></td>
+              <td class="glpi-ticket-date">${dateStr}</td>
+            </tr>`;
+          }).join('');
+          glpiEl.innerHTML = `
+            <button class="glpi-badge warn glpi-toggle" aria-expanded="false">
+              ${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''} ▾
+            </button>
+            <div class="glpi-panel" hidden>
+              <table class="glpi-table">
+                <thead><tr><th>#</th><th>Titre</th><th>Statut</th><th>Date</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>`;
+          const btn = glpiEl.querySelector('.glpi-toggle');
+          const panel = glpiEl.querySelector('.glpi-panel');
+          btn.addEventListener('click', () => {
+            const open = btn.getAttribute('aria-expanded') === 'true';
+            btn.setAttribute('aria-expanded', String(!open));
+            btn.textContent = `${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''} ${open ? '▾' : '▴'}`;
+            panel.hidden = open;
+          });
         }
       })
       .catch(() => { glpiEl.innerHTML = '<span class="glpi-badge na">—</span>'; });

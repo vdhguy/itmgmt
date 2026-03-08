@@ -421,6 +421,22 @@
     .glpi-badge.ok   { background: #edf7ef; color: var(--green); border: 1px solid var(--green); }
     .glpi-badge.warn { background: #fdf8ed; color: #b07800; border: 1px solid #e8b84b; }
     .glpi-badge.na   { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); font-weight: 400; }
+    .glpi-badge.glpi-toggle { cursor: pointer; border: none; font-family: inherit; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.02em; }
+    .glpi-panel { margin-top: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .glpi-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .glpi-table th { text-align: left; padding: 6px 10px; font-weight: 700; color: var(--text-muted); background: var(--surface-3); border-bottom: 1px solid var(--border); }
+    .glpi-ticket-row td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .glpi-ticket-row:last-child td { border-bottom: none; }
+    .glpi-ticket-id { color: var(--text-muted); white-space: nowrap; font-weight: 600; }
+    .glpi-ticket-title { color: var(--text); max-width: 280px; }
+    .glpi-ticket-date { color: var(--text-muted); white-space: nowrap; }
+    .glpi-status-badge { display: inline-block; padding: 2px 7px; border-radius: 8px; font-weight: 700; font-size: 10px; white-space: nowrap; }
+    .glpi-status-badge.s1 { background: #e8f4fd; color: #1a6fa8; }
+    .glpi-status-badge.s2 { background: #fff4e0; color: #b07800; }
+    .glpi-status-badge.s3 { background: #f0f0ff; color: #5555cc; }
+    .glpi-status-badge.s4 { background: #fdeaea; color: #c0392b; }
+    .glpi-status-badge.s5 { background: #edf7ef; color: var(--green); }
+    .glpi-status-badge.s6 { background: var(--surface-3); color: var(--text-muted); }
 
     /* ── SIGN-IN LOG ── */
     .ud-signins-title {

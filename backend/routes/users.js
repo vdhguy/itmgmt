@@ -58,16 +58,22 @@ router.get('/:id/glpi-tickets', async (req, res) => {
         const glpiUserId = userData[0]['2']; // field 2 = ID
         console.log('[GLPI] glpiUserId =', glpiUserId);
 
-        // 2. Count open tickets (status < 5: New/Processing/Planned/Pending) for this requester
+        // 2. Get open tickets with title, status, date for this requester
         const ticketSearch = await axios.get(
             `${sess.url}/search/Ticket` +
             `?criteria[0][field]=4&criteria[0][searchtype]=equals&criteria[0][value]=${glpiUserId}` +
-            `&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=lessthan&criteria[1][value]=5`,
+            `&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=lessthan&criteria[1][value]=5` +
+            `&forcedisplay[0]=2&forcedisplay[1]=1&forcedisplay[2]=12&forcedisplay[3]=15`,
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
-        console.log('[GLPI] ticket search totalcount =', ticketSearch.data?.totalcount, 'data =', JSON.stringify(ticketSearch.data).slice(0, 300));
         const count = ticketSearch.data?.totalcount ?? 0;
-        res.json({ count });
+        const tickets = (ticketSearch.data?.data || []).map(t => ({
+            id:     t['2'],
+            title:  t['1'],
+            status: t['12'],
+            date:   t['15']
+        }));
+        res.json({ count, tickets });
 
     } catch (err) {
         // Invalidate cached session on error so next call re-authenticates

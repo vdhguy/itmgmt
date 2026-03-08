@@ -66,6 +66,7 @@ router.get('/:id/glpi-tickets', async (req, res) => {
             `&forcedisplay[0]=2&forcedisplay[1]=1&forcedisplay[2]=12&forcedisplay[3]=15`,
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
+        console.log('[GLPI] ticketSearch totalcount=', ticketSearch.data?.totalcount, 'raw=', JSON.stringify(ticketSearch.data?.data));
         // Filtre en JS : exclut Résolu (5) et Clos (6)
         const tickets = (ticketSearch.data?.data || [])
             .map(t => ({ id: t['2'], title: t['1'], status: Number(t['12']), date: t['15'] }))

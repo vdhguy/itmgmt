@@ -15,11 +15,14 @@ async function getGlpiSession() {
     const glpiUrl   = process.env.GLPI_URL;
     const appToken  = process.env.GLPI_APP_TOKEN;
     const userToken = process.env.GLPI_USER_TOKEN;
+    console.log('[GLPI] GLPI_URL =', glpiUrl || '(not set)');
     if (!glpiUrl || !appToken || !userToken) return null;
 
     if (glpiSession && Date.now() - glpiSessionTime < GLPI_SESSION_TTL) return glpiSession;
 
-    const r = await axios.get(`${glpiUrl}/initSession`, {
+    const initUrl = `${glpiUrl}/initSession`;
+    console.log('[GLPI] Calling initSession:', initUrl);
+    const r = await axios.get(initUrl, {
         headers: { 'App-Token': appToken, 'Authorization': `user_token ${userToken}` }
     });
     glpiSession = { url: glpiUrl, headers: { 'App-Token': appToken, 'Session-Token': r.data.session_token } };
@@ -60,7 +63,10 @@ router.get('/:id/glpi-tickets', async (req, res) => {
     } catch (err) {
         // Invalidate cached session on error so next call re-authenticates
         glpiSession = null;
-        console.error('GLPI error:', err.response?.data || err.message);
+        console.error('[GLPI] Error:', err.message);
+        console.error('[GLPI] Code:', err.code);
+        console.error('[GLPI] Response data:', JSON.stringify(err.response?.data));
+        console.error('[GLPI] Request URL:', err.config?.url);
         res.json({ count: null, error: 'GLPI unavailable' });
     }
 });

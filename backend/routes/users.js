@@ -19,13 +19,11 @@ async function getGlpiSession() {
     const glpiUrl   = (process.env.GLPI_URL || '').replace(/\/+$/, ''); // strip trailing slashes
     const appToken  = process.env.GLPI_APP_TOKEN;
     const userToken = process.env.GLPI_USER_TOKEN;
-    console.log('[GLPI] GLPI_URL =', glpiUrl || '(not set)');
     if (!glpiUrl || !appToken || !userToken) return null;
 
     if (glpiSession && Date.now() - glpiSessionTime < GLPI_SESSION_TTL) return glpiSession;
 
     const initUrl = `${glpiUrl}/initSession`;
-    console.log('[GLPI] Calling initSession:', initUrl);
     const r = await axios.get(initUrl, {
         headers: { 'App-Token': appToken, 'Authorization': `user_token ${userToken}` },
         httpsAgent: glpiAgent
@@ -51,12 +49,10 @@ router.get('/:id/glpi-tickets', async (req, res) => {
             `${sess.url}/search/User?criteria[0][field]=5&criteria[0][searchtype]=contains&criteria[0][value]=${encodeURIComponent(email)}&forcedisplay[0]=2`,
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
-        console.log('[GLPI] user search email', email, '→ totalcount', r.data?.totalcount);
         if (r.data?.data?.length) userData = r.data.data;
         if (!userData) return res.json({ count: 0 });
 
         const glpiUserId = userData[0]['2']; // field 2 = ID
-        console.log('[GLPI] glpiUserId =', glpiUserId);
 
         // 2. Get open tickets with title, status, date for this requester
         // range=0-999 pour contourner la pagination GLPI (15 par défaut)
@@ -67,7 +63,6 @@ router.get('/:id/glpi-tickets', async (req, res) => {
             `&range=0-999`,
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
-        console.log('[GLPI] ticketSearch totalcount=', ticketSearch.data?.totalcount, 'raw=', JSON.stringify(ticketSearch.data?.data));
         // Filtre en JS : exclut Résolu (5) et Clos (6)
         const tickets = (ticketSearch.data?.data || [])
             .map(t => ({ id: t['2'], title: t['1'], status: Number(t['12']), date: t['15'] }))

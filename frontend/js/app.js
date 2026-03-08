@@ -71,6 +71,7 @@
   // ── FETCH
   async function api(path, opts = {}) {
     const r = await fetch(path, opts);
+    if (r.status === 401) { window.location.href = '/login.html'; return; }
     if (!r.ok) {
       let detail = '';
       try { const j = await r.json(); detail = j.detail ? ` — ${JSON.stringify(j.detail)}` : (j.error ? ` — ${j.error}` : ''); } catch {}
@@ -78,6 +79,16 @@
     }
     return r.json();
   }
+
+  // ── USER SESSION
+  fetch('/auth/me').then(r => r.ok ? r.json() : null).then(u => {
+    if (!u) return;
+    const status = document.querySelector('.status');
+    const userEl = document.createElement('div');
+    userEl.className = 'session-user';
+    userEl.innerHTML = `<span class="session-name">${u.name || u.upn}</span><a href="/auth/logout" class="session-logout">Déconnexion</a>`;
+    status.before(userEl);
+  });
 
   // ── STATS
   function setStats(list) {
@@ -268,11 +279,16 @@
       });
 
     // Sécurité — Vulnérabilités critiques Microsoft
-    $('p-vuln-badge').className = 'sec-badge loading';
-    $('p-vuln-badge').textContent = 'Chargement vulnérabilités…';
+    const vulnEl = $('p-vuln-badge');
+    vulnEl.className = 'sec-badge loading';
+    vulnEl.innerHTML = `
+      <span>Analyse des vulnérabilités…</span>
+      <div class="vuln-progress-wrap"><div class="vuln-progress-bar indeterminate"></div></div>`;
+    $('p-vuln-detail').style.display = 'none';
+    $('p-vuln-detail').innerHTML = '';
     if (d.deviceName) {
       api(`/api/security/${encodeURIComponent(d.deviceName)}/criticalVulns`)
-        .then(({ count }) => {
+        .then(({ count, breakdown }) => {
           const el = $('p-vuln-badge');
           if (count === null) {
             el.className = 'sec-badge unavail';
@@ -298,6 +314,23 @@
                 el.textContent = `Erreur : ${e.message}`;
               }
             };
+
+            // Tableau de détail par logiciel
+            if (breakdown && breakdown.length) {
+              const detail = $('p-vuln-detail');
+              detail.style.display = '';
+              detail.innerHTML = `
+                <table class="vuln-table">
+                  <thead><tr><th>Logiciel Microsoft</th><th>CVE critiques</th></tr></thead>
+                  <tbody>
+                    ${breakdown.map(s => `
+                      <tr>
+                        <td>${s.name}</td>
+                        <td><span class="vuln-count">${s.criticalCount}</span></td>
+                      </tr>`).join('')}
+                  </tbody>
+                </table>`;
+            }
           }
         })
         .catch(e => {
@@ -305,8 +338,8 @@
           $('p-vuln-badge').textContent = `Vulnérabilités : erreur (${e.message})`;
         });
     } else {
-      $('p-vuln-badge').className = 'sec-badge unavail';
-      $('p-vuln-badge').textContent = 'Vulnérabilités : non disponibles';
+      vulnEl.className = 'sec-badge unavail';
+      vulnEl.textContent = 'Vulnérabilités : non disponibles';
     }
 
     // ── LAPS

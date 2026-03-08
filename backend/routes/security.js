@@ -13,6 +13,7 @@ let machineListCache = null;
 let machineListCacheTime = 0;
 const MACHINE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+
 async function findMdeMachine(name, headers) {
     const lower = name.toLowerCase();
 
@@ -87,42 +88,31 @@ router.get('/:deviceName/criticalVulns', async (req, res) => {
 
         const mdeId = machine.id;
 
-        // 2. Parallel: machine vulnerabilities + Microsoft software on this machine
-        const [vulnsRes, softwareRes] = await Promise.all([
-            axios.get(mde.MACHINE_VULNS(mdeId), { headers }),
-            axios.get(mde.MACHINE_SOFTWARE(mdeId), { headers }),
-        ]);
-
-        // Critical CVE IDs affecting this machine
-        const criticalCveIds = new Set(
-            vulnsRes.data.value
-                .filter(v => v.severity === 'Critical')
-                .map(v => v.id)
+        // 2. Get installed software — keep only Microsoft products with known weaknesses
+        const swRes = await axios.get(mde.MACHINE_SOFTWARE(mdeId), { headers });
+        const msSoftware = swRes.data.value.filter(s =>
+            (s.vendor || '').toLowerCase().includes('microsoft') && (s.weaknesses || 0) > 0
         );
-        if (!criticalCveIds.size) return res.json({ count: 0 });
 
-        // Microsoft software installed on this machine
-        const msSoftwareIds = softwareRes.data.value
-            .filter(s => (s.vendor || '').toLowerCase() === 'microsoft')
-            .map(s => s.id);
-        if (!msSoftwareIds.length) return res.json({ count: 0 });
+        if (!msSoftware.length) {
+            return res.json({ count: 0, breakdown: [] });
+        }
 
-        // 3. Fetch CVE list for each Microsoft software package (parallel)
-        const swVulnLists = await Promise.all(
-            msSoftwareIds.map(swId =>
-                axios.get(mde.SOFTWARE_VULNS(swId), { headers })
-                    .then(r => r.data.value.map(v => v.id))
-                    .catch(() => [])
+        // 3. Fetch critical CVEs for each Microsoft software in parallel
+        const results = await Promise.all(
+            msSoftware.map(sw =>
+                axios.get(mde.SOFTWARE_VULNS(sw.id), { headers })
+                    .then(r => {
+                        const criticalCount = r.data.value.filter(v => v.severity === 'Critical').length;
+                        return criticalCount > 0 ? { name: sw.name || sw.id, criticalCount } : null;
+                    })
+                    .catch(() => null)
             )
         );
+        const breakdown = results.filter(Boolean);
+        const count = breakdown.reduce((acc, s) => acc + s.criticalCount, 0);
 
-        // Union of CVE IDs from all Microsoft software
-        const msCveIds = new Set(swVulnLists.flat());
-
-        // Intersection: critical on this machine AND from Microsoft software
-        const count = [...criticalCveIds].filter(id => msCveIds.has(id)).length;
-
-        res.json({ count });
+        res.json({ count, breakdown });
     } catch (err) {
         const detail = err.response?.data || err.message;
         console.error('Error fetching vulns:', detail);

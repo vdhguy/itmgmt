@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — IT Utilitaire</title>
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700;800&family=Lato:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent:  #3a7a10;
+      --accent2: #2d6010;
+      --bg:      #f2f6ee;
+      --text:    #1a2e0e;
+      --muted:   #7a9c58;
+      --red:     #c0392b;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Lato', sans-serif;
+      background: var(--bg);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 20% 80%, rgba(58,122,16,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(46,139,58,0.08) 0%, transparent 60%),
+        var(--bg);
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(26,46,14,0.10), 0 1px 4px rgba(26,46,14,0.06);
+      padding: 48px 40px 40px;
+      width: 360px;
+      text-align: center;
+    }
+
+    .logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px; height: 64px;
+      background: var(--accent);
+      border-radius: 14px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(58,122,16,0.3);
+    }
+
+    .logo-wrap svg { width: 34px; height: 34px; }
+
+    h1 {
+      font-family: 'Raleway', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .btn-ms {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-family: 'Lato', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, box-shadow 0.15s;
+      box-shadow: 0 2px 8px rgba(58,122,16,0.25);
+    }
+
+    .btn-ms:hover {
+      background: var(--accent2);
+      box-shadow: 0 4px 12px rgba(58,122,16,0.35);
+    }
+
+    .ms-icon { flex-shrink: 0; }
+
+    .error {
+      margin-top: 20px;
+      padding: 10px 14px;
+      background: #fdf0ef;
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      color: var(--red);
+      font-size: 13px;
+      display: none;
+    }
+
+    .error.visible { display: block; }
+
+    .footer {
+      margin-top: 32px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo-wrap">
+    <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="30" height="30" rx="5" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+      <text x="17" y="24" font-family="Raleway, sans-serif" font-weight="800" font-size="20" fill="#ffffff" text-anchor="middle">L</text>
+      <circle cx="28" cy="6" r="2" fill="rgba(255,255,255,0.6)"/>
+    </svg>
+  </div>
+
+  <h1>IT Utilitaire</h1>
+  <p class="subtitle">Connectez-vous avec votre compte Microsoft</p>
+
+  <a href="/auth/login" class="btn-ms">
+    <svg class="ms-icon" width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+    </svg>
+    Se connecter avec Microsoft
+  </a>
+
+  <div class="error" id="err"></div>
+
+  <p class="footer">Accès réservé aux membres du groupe IT</p>
+</div>
+
+<script>
+  const p = new URLSearchParams(location.search);
+  const err = document.getElementById('err');
+  if (p.get('error') === 'unauthorized') {
+    err.textContent = "Accès refusé — vous n'êtes pas membre du groupe autorisé.";
+    err.classList.add('visible');
+  } else if (p.get('error')) {
+    err.textContent = "Une erreur s'est produite lors de la connexion. Veuillez réessayer.";
+    err.classList.add('visible');
+  }
+</script>
+
+</body>
+</html>

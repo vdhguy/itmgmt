@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const session = require('express-session');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -12,9 +13,12 @@ const inventoryRouter = require('./routes/inventory');
 const usersRouter = require('./routes/users');
 const securityRouter = require('./routes/security');
 const autopatchRouter = require('./routes/autopatch');
+const authRouter = require('./routes/auth');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
 
 app.use(helmet({
     contentSecurityPolicy: {
@@ -34,17 +38,44 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// ── SESSION
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'change-this-secret-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: 'lax',
+        maxAge: 8 * 60 * 60 * 1000, // 8 hours
+    }
+}));
+
+// ── PUBLIC ROUTES (no auth required)
+app.use('/auth', authRouter);
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// ── GATE: redirect unauthenticated users; return 401 for API calls
+const PUBLIC_PATHS = ['/login.html', '/css/', '/js/', '/img/'];
+app.use((req, res, next) => {
+    if (PUBLIC_PATHS.some(p => req.path.startsWith(p))) return next();
+    if (!req.session?.user) {
+        if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not authenticated' });
+        return res.redirect('/login.html');
+    }
+    next();
+});
+
+// ── PROTECTED API ROUTES
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 2000 });
 app.use('/api', limiter);
-
 app.use('/api/devices', devicesRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/security', securityRouter);
 app.use('/api/autopatch', autopatchRouter);
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
-
+// ── STATIC (frontend)
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

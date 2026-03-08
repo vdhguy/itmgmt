@@ -32,4 +32,4 @@ async function getMdeAccessToken() {
     return result.accessToken;
 }
 
-module.exports = { authMiddleware, getAccessToken, getMdeAccessToken };
+module.exports = { authMiddleware, getAccessToken, getMdeAccessToken, cca };

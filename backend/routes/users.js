@@ -51,9 +51,11 @@ router.get('/:id/glpi-tickets', async (req, res) => {
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
         const userData = userSearch.data?.data;
+        console.log('[GLPI] user search for', email, '→', JSON.stringify(userSearch.data));
         if (!userData || !userData.length) return res.json({ count: 0 });
 
         const glpiUserId = userData[0]['2']; // field 2 = ID
+        console.log('[GLPI] glpiUserId =', glpiUserId);
 
         // 2. Count open tickets (status < 5: New/Processing/Planned/Pending) for this requester
         const ticketSearch = await axios.get(
@@ -62,6 +64,7 @@ router.get('/:id/glpi-tickets', async (req, res) => {
             `&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=lessthan&criteria[1][value]=5`,
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
+        console.log('[GLPI] ticket search totalcount =', ticketSearch.data?.totalcount, 'data =', JSON.stringify(ticketSearch.data).slice(0, 300));
         const count = ticketSearch.data?.totalcount ?? 0;
         res.json({ count });
 

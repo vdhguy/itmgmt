@@ -1,7 +1,11 @@
 const express = require('express');
 const axios = require('axios');
+const https = require('https');
 const { authMiddleware } = require('../middleware/auth');
 const graph = require('../config/graph');
+
+// GLPI uses a self-signed/internal cert — skip TLS verification for internal calls only
+const glpiAgent = new https.Agent({ rejectUnauthorized: false });
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -23,7 +27,8 @@ async function getGlpiSession() {
     const initUrl = `${glpiUrl}/initSession`;
     console.log('[GLPI] Calling initSession:', initUrl);
     const r = await axios.get(initUrl, {
-        headers: { 'App-Token': appToken, 'Authorization': `user_token ${userToken}` }
+        headers: { 'App-Token': appToken, 'Authorization': `user_token ${userToken}` },
+        httpsAgent: glpiAgent
     });
     glpiSession = { url: glpiUrl, headers: { 'App-Token': appToken, 'Session-Token': r.data.session_token } };
     glpiSessionTime = Date.now();
@@ -43,7 +48,7 @@ router.get('/:id/glpi-tickets', async (req, res) => {
         // 1. Find GLPI user ID by email (field 5 = email in GLPI User)
         const userSearch = await axios.get(
             `${sess.url}/search/User?criteria[0][field]=5&criteria[0][searchtype]=equals&criteria[0][value]=${encodeURIComponent(email)}&forcedisplay[0]=2`,
-            { headers: sess.headers }
+            { headers: sess.headers, httpsAgent: glpiAgent }
         );
         const userData = userSearch.data?.data;
         if (!userData || !userData.length) return res.json({ count: 0 });
@@ -55,7 +60,7 @@ router.get('/:id/glpi-tickets', async (req, res) => {
             `${sess.url}/search/Ticket` +
             `?criteria[0][field]=4&criteria[0][searchtype]=equals&criteria[0][value]=${glpiUserId}` +
             `&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=lessthan&criteria[1][value]=5`,
-            { headers: sess.headers }
+            { headers: sess.headers, httpsAgent: glpiAgent }
         );
         const count = ticketSearch.data?.totalcount ?? 0;
         res.json({ count });

@@ -16,7 +16,7 @@ let glpiSessionTime = 0;
 const GLPI_SESSION_TTL = 20 * 60 * 1000; // 20 min
 
 async function getGlpiSession() {
-    const glpiUrl   = process.env.GLPI_URL;
+    const glpiUrl   = (process.env.GLPI_URL || '').replace(/\/+$/, ''); // strip trailing slashes
     const appToken  = process.env.GLPI_APP_TOKEN;
     const userToken = process.env.GLPI_USER_TOKEN;
     console.log('[GLPI] GLPI_URL =', glpiUrl || '(not set)');
@@ -45,14 +45,18 @@ router.get('/:id/glpi-tickets', async (req, res) => {
         const sess = await getGlpiSession();
         if (!sess) return res.json({ count: null, reason: 'not_configured' });
 
-        // 1. Find GLPI user ID by email (field 5 = email in GLPI User)
-        const userSearch = await axios.get(
-            `${sess.url}/search/User?criteria[0][field]=5&criteria[0][searchtype]=equals&criteria[0][value]=${encodeURIComponent(email)}&forcedisplay[0]=2`,
-            { headers: sess.headers, httpsAgent: glpiAgent }
-        );
-        const userData = userSearch.data?.data;
-        console.log('[GLPI] user search for', email, '→', JSON.stringify(userSearch.data));
-        if (!userData || !userData.length) return res.json({ count: 0 });
+        // 1. Find GLPI user ID — try email (field 5) first, fall back to login (field 1 = username part)
+        const login = email.split('@')[0];
+        let userData = null;
+        for (const [field, value] of [[5, email], [1, login]]) {
+            const r = await axios.get(
+                `${sess.url}/search/User?criteria[0][field]=${field}&criteria[0][searchtype]=equals&criteria[0][value]=${encodeURIComponent(value)}&forcedisplay[0]=2`,
+                { headers: sess.headers, httpsAgent: glpiAgent }
+            );
+            console.log('[GLPI] user search field', field, '=', value, '→ totalcount', r.data?.totalcount);
+            if (r.data?.data?.length) { userData = r.data.data; break; }
+        }
+        if (!userData) return res.json({ count: 0 });
 
         const glpiUserId = userData[0]['2']; // field 2 = ID
         console.log('[GLPI] glpiUserId =', glpiUserId);

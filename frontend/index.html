@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lasne IT Utilitaire</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700;800&family=Lato:wght@400;500;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">L</div>
+    <div class="logo-text">Lasne <em>IT Utilitaire</em></div>
+  </div>
+
+  <nav>
+    <button class="tab active" data-tab="devices">Appareils</button>
+    <button class="tab" data-tab="user-search">Utilisateur</button>
+    <button class="tab" data-tab="autopatch">Sécurité</button>
+  </nav>
+
+  <div class="status">
+    <span class="status-dot"></span>
+    <span id="ts">—</span>
+  </div>
+</header>
+
+<div class="app">
+  <main id="main">
+
+    <!-- ── APPAREILS ── -->
+    <div id="v-devices">
+      <div class="stats" id="stats">
+        <div class="stat"><div class="stat-label">Total</div><div class="stat-val" id="s-total">—</div></div>
+        <div class="stat"><div class="stat-label">Windows</div><div class="stat-val" id="s-win">—</div></div>
+        <div class="stat"><div class="stat-label">Synchro ≤ 7j</div><div class="stat-val" id="s-ok">—</div></div>
+        <div class="stat"><div class="stat-label">Hors synchro</div><div class="stat-val" id="s-old">—</div></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-ico">⌕</span>
+          <input class="search" id="q-dev" type="text" placeholder="Rechercher appareil, OS, fabricant…">
+        </div>
+        <span class="badge" id="badge-dev"></span>
+      </div>
+
+      <div class="table-wrap">
+        <div id="dev-loading" class="loading">
+          <div class="spinner"></div><span>Chargement…</span>
+        </div>
+        <table id="dev-table" style="display:none">
+          <thead>
+            <tr>
+              <th data-col="deviceName">Appareil</th>
+              <th data-col="operatingSystem">Système</th>
+              <th data-col="manufacturer">Fabricant / Modèle</th>
+              <th data-col="lastSyncDateTime">Dernière sync</th>
+            </tr>
+          </thead>
+          <tbody id="dev-body"></tbody>
+        </table>
+        <div id="dev-empty" class="empty" style="display:none">Aucun appareil trouvé.</div>
+      </div>
+    </div>
+
+    <!-- ── UTILISATEUR ── -->
+    <div id="v-user-search" style="display:none">
+      <div class="user-search-wrap">
+        <div class="user-search-big">
+          <div class="search-box" style="max-width:none;flex:1">
+            <span class="search-ico">⌕</span>
+            <input class="search" id="q-user" type="text"
+              placeholder="Nom, prénom ou adresse e-mail…"
+              autocomplete="off">
+          </div>
+          <button class="btn-search" id="btn-user-search">Rechercher</button>
+        </div>
+
+        <div id="user-results"></div>
+        <div id="user-devices-section" style="display:none">
+          <div class="user-devices-header">
+            <div class="user-devices-name" id="ud-username"></div>
+            <div class="user-devices-count" id="ud-count"></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Appareil</th>
+                  <th>Système</th>
+                  <th>Fabricant / Modèle</th>
+                  <th>Dernière sync</th>
+                  <th>1ère connexion</th>
+                  <th>Dernière activité</th>
+                </tr>
+              </thead>
+              <tbody id="ud-body"></tbody>
+            </table>
+            <div id="ud-empty" class="empty" style="display:none">Aucun appareil associé à cet utilisateur.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AUTOPATCH / SÉCURITÉ ── -->
+    <div id="v-autopatch" style="display:none">
+      <div class="ap-header">
+        <div class="ap-title">Autopatch — Test Ring</div>
+        <div class="ap-desc">Groupe : Lasne Latop Update - Test</div>
+      </div>
+      <div class="ap-add">
+        <select id="ap-add-sel" class="ap-select">
+          <option value="">Choisir un appareil à ajouter…</option>
+        </select>
+        <button class="btn-search" id="ap-add-btn">Ajouter</button>
+      </div>
+      <div id="ap-loading" class="loading" style="display:none">
+        <div class="spinner"></div><span>Chargement…</span>
+      </div>
+      <div class="table-wrap" id="ap-members-wrap" style="display:none">
+        <div id="ap-members-list"></div>
+        <div id="ap-empty" class="empty" style="display:none;padding:20px 16px">Aucun appareil dans ce groupe.</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── PANEL ── -->
+<div class="panel" id="panel">
+  <div class="panel-head">
+    <div class="panel-title" id="p-name">—</div>
+    <button class="panel-x" id="p-close">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="section">
+      <div class="sec-title">Informations</div>
+      <div class="field-list" id="p-fields"></div>
+    </div>
+    <div class="section">
+      <div class="sec-title">Dernier utilisateur</div>
+      <div id="p-user"><span class="blink">Chargement…</span></div>
+    </div>
+    <div class="section">
+      <div class="sec-title">Matériel</div>
+      <div id="p-hardware"><span class="blink">Chargement…</span></div>
+    </div>
+    <div class="section">
+      <div class="sec-title">Sécurité</div>
+      <div id="p-security" class="sec-badges">
+        <div id="p-av-badge" class="sec-badge loading">Chargement Defender…</div>
+        <div id="p-vuln-badge" class="sec-badge loading">Chargement vulnérabilités…</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="sec-title">Mot de passe admin local</div>
+      <div id="p-laps"></div>
+    </div>
+    <div class="section">
+      <div class="sec-title">BitLocker</div>
+      <div id="p-bitlocker"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

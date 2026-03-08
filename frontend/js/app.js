@@ -4,6 +4,10 @@
     if (el && d.version) el.textContent = `v${d.version}`;
   }).catch(() => {});
 
+  // ── GLPI MODAL (close)
+  document.getElementById('glpi-modal-close').onclick = () => { document.getElementById('glpi-modal').hidden = true; };
+  document.getElementById('glpi-modal').addEventListener('click', e => { if (e.target === document.getElementById('glpi-modal')) document.getElementById('glpi-modal').hidden = true; });
+
   // ── STATE
   let devices = [], selRow = null, activeUserCard = null;
   let sortCol = 'deviceName', sortDir = 1; // 1=asc, -1=desc
@@ -612,23 +616,16 @@
               <td class="glpi-ticket-date">${dateStr}</td>
             </tr>`;
           }).join('');
-          glpiEl.innerHTML = `
-            <button class="glpi-badge warn glpi-toggle" aria-expanded="false">
-              ${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''} ▾
-            </button>
-            <div class="glpi-panel" hidden>
-              <table class="glpi-table">
-                <thead><tr><th>#</th><th>Titre</th><th>Statut</th><th>Date</th></tr></thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </div>`;
-          const btn = glpiEl.querySelector('.glpi-toggle');
-          const panel = glpiEl.querySelector('.glpi-panel');
-          btn.addEventListener('click', () => {
-            const open = btn.getAttribute('aria-expanded') === 'true';
-            btn.setAttribute('aria-expanded', String(!open));
-            btn.textContent = `${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''} ${open ? '▾' : '▴'}`;
-            panel.hidden = open;
+          glpiEl.innerHTML = `<button class="glpi-badge warn glpi-toggle">
+            ${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''}
+          </button>`;
+          glpiEl.querySelector('.glpi-toggle').addEventListener('click', () => {
+            $('glpi-modal-sub').textContent = `${user.displayName || email} — ${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''}`;
+            $('glpi-modal-body').innerHTML = `<table class="glpi-table">
+              <thead><tr><th>#</th><th>Titre</th><th>Statut</th><th>Date</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>`;
+            $('glpi-modal').hidden = false;
           });
         }
       })

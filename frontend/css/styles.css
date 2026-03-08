@@ -422,15 +422,58 @@
     .glpi-badge.warn { background: #fdf8ed; color: #b07800; border: 1px solid #e8b84b; }
     .glpi-badge.na   { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); font-weight: 400; }
     .glpi-badge.glpi-toggle { cursor: pointer; border: none; font-family: inherit; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.02em; }
-    .glpi-panel { margin-top: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .glpi-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    .glpi-table th { text-align: left; padding: 6px 10px; font-weight: 700; color: var(--text-muted); background: var(--surface-3); border-bottom: 1px solid var(--border); }
-    .glpi-ticket-row td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+
+    /* ── GLPI MODAL ── */
+    .glpi-modal-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 72px 24px 24px;
+      animation: fadeIn 0.18s ease;
+    }
+    .glpi-modal-backdrop[hidden] { display: none; }
+    .glpi-modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; width: 100%; max-width: 1100px;
+      max-height: calc(100vh - 96px);
+      display: flex; flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      animation: slideUp 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .glpi-modal-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 18px 22px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2); border-radius: 12px 12px 0 0;
+      flex-shrink: 0;
+    }
+    .glpi-modal-title {
+      font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--accent);
+    }
+    .glpi-modal-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .glpi-modal-close {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text-dim); width: 30px; height: 30px;
+      display: grid; place-items: center; cursor: pointer; font-size: 14px;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .glpi-modal-close:hover { border-color: var(--red); color: var(--red); background: #fdf0ef; }
+    .glpi-modal-body { overflow-y: auto; flex: 1; }
+    .glpi-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .glpi-table th {
+      text-align: left; padding: 10px 16px; font-weight: 700;
+      color: var(--text-muted); background: var(--surface-3);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 1;
+    }
+    .glpi-ticket-row td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
     .glpi-ticket-row:last-child td { border-bottom: none; }
-    .glpi-ticket-id { color: var(--text-muted); white-space: nowrap; font-weight: 600; }
-    .glpi-ticket-title { color: var(--text); max-width: 280px; }
-    .glpi-ticket-date { color: var(--text-muted); white-space: nowrap; }
-    .glpi-status-badge { display: inline-block; padding: 2px 7px; border-radius: 8px; font-weight: 700; font-size: 10px; white-space: nowrap; }
+    .glpi-ticket-row:hover td { background: var(--surface-2); }
+    .glpi-ticket-id { color: var(--text-muted); white-space: nowrap; font-weight: 600; width: 60px; }
+    .glpi-ticket-title { color: var(--text); }
+    .glpi-ticket-date { color: var(--text-muted); white-space: nowrap; width: 100px; }
+    .glpi-status-badge { display: inline-block; padding: 3px 9px; border-radius: 10px; font-weight: 700; font-size: 10px; white-space: nowrap; }
     .glpi-status-badge.s1 { background: #e8f4fd; color: #1a6fa8; }
     .glpi-status-badge.s2 { background: #fff4e0; color: #b07800; }
     .glpi-status-badge.s3 { background: #f0f0ff; color: #5555cc; }

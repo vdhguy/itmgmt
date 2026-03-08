@@ -62,14 +62,14 @@ router.get('/:id/glpi-tickets', async (req, res) => {
         const ticketSearch = await axios.get(
             `${sess.url}/search/Ticket` +
             `?criteria[0][field]=4&criteria[0][searchtype]=equals&criteria[0][value]=${glpiUserId}` +
-            `&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=notequals&criteria[1][value]=5` +
-            `&criteria[2][link]=AND&criteria[2][field]=12&criteria[2][searchtype]=notequals&criteria[2][value]=6` +
+            `&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=lessthan&criteria[1][value]=5` +
             `&forcedisplay[0]=2&forcedisplay[1]=1&forcedisplay[2]=12&forcedisplay[3]=15`,
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
+        console.log('[GLPI] ticketSearch totalcount=', ticketSearch.data?.totalcount, 'raw data=', JSON.stringify(ticketSearch.data?.data));
         const tickets = (ticketSearch.data?.data || [])
-            .map(t => ({ id: t['2'], title: t['1'], status: t['12'], date: t['15'] }))
-            .filter(t => t.status !== 5 && t.status !== 6); // double sécurité
+            .map(t => ({ id: t['2'], title: t['1'], status: Number(t['12']), date: t['15'] }))
+            .filter(t => t.status !== 5 && t.status !== 6);
         const count = tickets.length;
         res.json({ count, tickets });
 

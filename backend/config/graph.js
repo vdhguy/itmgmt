@@ -9,6 +9,7 @@ module.exports = {
     USERS_SEARCH:    (q)  => `${BASE}/users?$search="displayName:${q}" OR "userPrincipalName:${q}"&$select=id,displayName,userPrincipalName,mail&$top=20&$orderby=displayName`,
     USER_DEVICES:    (id) => `${BASE}/users/${id}/managedDevices`,
     USER_SIGNIN:       (id) => `${BASE}/users/${id}?$select=id,signInActivity`,
+    USER_SIGNINS:      (id, since) => `${BASE}/auditLogs/signIns?$filter=userId eq '${id}' and createdDateTime ge ${since}&$top=200&$orderby=createdDateTime desc&$select=createdDateTime,appDisplayName,ipAddress,location,status,deviceDetail,clientAppUsed`,
     DEVICE_LOGONS:     (id) => `${BASE_BETA}/deviceManagement/managedDevices/${id}?$select=id,usersLoggedOn`,
     DEVICE_PROTECTION: (id) => `${BASE_BETA}/deviceManagement/managedDevices/${id}/windowsProtectionState`,
     // BitLocker & LAPS

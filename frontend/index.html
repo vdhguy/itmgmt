@@ -85,22 +85,13 @@
           <div class="user-devices-header">
             <div class="user-devices-name" id="ud-username"></div>
             <div class="user-devices-count" id="ud-count"></div>
+            <div id="ud-glpi" class="ud-glpi-wrap"></div>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Appareil</th>
-                  <th>Système</th>
-                  <th>Fabricant / Modèle</th>
-                  <th>Dernière sync</th>
-                  <th>1ère connexion</th>
-                  <th>Dernière activité</th>
-                </tr>
-              </thead>
-              <tbody id="ud-body"></tbody>
-            </table>
-            <div id="ud-empty" class="empty" style="display:none">Aucun appareil associé à cet utilisateur.</div>
+          <div id="ud-cards"></div>
+          <div id="ud-empty" class="empty" style="display:none">Aucun appareil associé à cet utilisateur.</div>
+          <div id="ud-signins" style="display:none">
+            <div class="ud-signins-title">Connexions — 7 derniers jours</div>
+            <div id="ud-signins-body"></div>
           </div>
         </div>
       </div>

@@ -118,6 +118,7 @@
     tb.innerHTML = '';
     sortedList(list).forEach((d, i) => {
       const tr = document.createElement('tr');
+      tr.dataset.id = d.id;
       tr.style.animationDelay = `${i * 0.025}s`;
       const old = stale(d.lastSyncDateTime);
       tr.innerHTML = `
@@ -433,6 +434,15 @@
     if (selRow) { selRow.classList.remove('sel'); selRow = null; }
   }
 
+  // ── NAVIGATE TO DEVICE
+  function navigateToDevice(id) {
+    document.querySelector('.tab[data-tab="devices"]').click();
+    const device = devices.find(d => d.id === id);
+    if (!device) return;
+    const tr = document.querySelector(`#dev-body tr[data-id="${id}"]`);
+    if (tr) openPanel(device, tr);
+  }
+
   // ── AUTOPATCH
   async function loadAutopatch() {
     $('ap-loading').style.display = 'flex';
@@ -568,53 +578,159 @@
     const name = user.displayName || user.userPrincipalName || '—';
     $('ud-username').textContent = name;
     $('ud-count').textContent = '';
-    $('ud-body').innerHTML = '<tr><td colspan="6"><div class="loading" style="padding:16px 0"><div class="spinner"></div></div></td></tr>';
+    $('ud-cards').innerHTML = '<div class="loading" style="padding:20px 0"><div class="spinner"></div></div>';
     $('ud-empty').style.display = 'none';
     $('user-devices-section').style.display = '';
+
+    // Tickets GLPI ouverts
+    const glpiEl = $('ud-glpi');
+    glpiEl.innerHTML = '<span class="blink">…</span>';
+    const email = user.mail || user.userPrincipalName || '';
+    api(`/api/users/${user.id}/glpi-tickets?email=${encodeURIComponent(email)}`)
+      .then(({ count, reason }) => {
+        if (count === null) {
+          glpiEl.innerHTML = reason === 'not_configured'
+            ? '<span class="glpi-badge na">GLPI non configuré</span>'
+            : '<span class="glpi-badge na">Indisponible</span>';
+        } else if (count === 0) {
+          glpiEl.innerHTML = '<span class="glpi-badge ok">0 ticket ouvert</span>';
+        } else {
+          glpiEl.innerHTML = `<span class="glpi-badge warn">${count} ticket${count > 1 ? 's' : ''} ouvert${count > 1 ? 's' : ''}</span>`;
+        }
+      })
+      .catch(() => { glpiEl.innerHTML = '<span class="glpi-badge na">—</span>'; });
 
     try {
       const devs = await api(`/api/users/${user.id}/devices`);
       $('ud-count').textContent = `${devs.length} appareil${devs.length!==1?'s':''}`;
-      $('ud-body').innerHTML = '';
+      $('ud-cards').innerHTML = '';
+
       if (!devs.length) {
         $('ud-empty').style.display = '';
-      } else {
-        devs.forEach(d => {
-          const old = stale(d.lastSyncDateTime);
-          const tr = document.createElement('tr');
-          const safeId = d.id.replace(/[^a-z0-9]/gi, '');
-          tr.innerHTML = `
-            <td class="dev-name">${d.deviceName || '—'}</td>
-            <td><span class="os-row"><span>${osIcon(d.operatingSystem)}</span><span>${d.operatingSystem||'—'}</span>${d.osVersion?`<span class="os-ver">${d.osVersion}</span>`:''}</span></td>
-            <td class="muted">${d.manufacturer||'—'} / ${d.model||'—'}</td>
-            <td class="sync ${old?'old':'ok'}">${ago(d.lastSyncDateTime)}</td>
-            <td id="ud-first-${safeId}" class="muted" style="font-size:11px"><span class="blink">…</span></td>
-            <td id="ud-last-${safeId}"  class="muted" style="font-size:11px"></td>
-          `;
-          $('ud-body').appendChild(tr);
+        return;
+      }
+
+      devs.forEach((d, i) => {
+        const old = stale(d.lastSyncDateTime);
+        const safeId = d.id.replace(/[^a-z0-9]/gi, '');
+        const card = document.createElement('div');
+        card.className = 'ud-card';
+        card.style.animationDelay = `${i * 0.06}s`;
+        card.innerHTML = `
+          <div class="ud-card-head">
+            <div class="ud-card-name-wrap">
+              <div class="ud-card-name">
+                <span>${osIcon(d.operatingSystem)}</span>
+                ${d.deviceName || '—'}
+              </div>
+              <div class="ud-card-os">${d.operatingSystem || '—'}${d.osVersion ? ' · ' + d.osVersion : ''}</div>
+            </div>
+            <button class="btn-goto" data-id="${d.id}">Voir dans Appareils →</button>
+          </div>
+          <div class="ud-card-grid">
+            <div class="ud-card-field">
+              <div class="ud-card-label">Fabricant</div>
+              <div class="ud-card-val">${d.manufacturer || '—'}</div>
+            </div>
+            <div class="ud-card-field">
+              <div class="ud-card-label">Modèle</div>
+              <div class="ud-card-val">${d.model || '—'}</div>
+            </div>
+            <div class="ud-card-field">
+              <div class="ud-card-label">N° de série</div>
+              <div class="ud-card-val">${d.serialNumber || '—'}</div>
+            </div>
+            <div class="ud-card-field">
+              <div class="ud-card-label">Enrollé le</div>
+              <div class="ud-card-val">${fmtDate(d.enrolledDateTime)}</div>
+            </div>
+            <div class="ud-card-field">
+              <div class="ud-card-label">Dernière sync</div>
+              <div class="ud-card-val ${old ? 'old' : 'ok'}">${ago(d.lastSyncDateTime)}</div>
+            </div>
+            <div class="ud-card-field">
+              <div class="ud-card-label">ID Azure AD</div>
+              <div class="ud-card-val" style="font-size:10px;word-break:break-all">${d.azureADDeviceId || '—'}</div>
+            </div>
+          </div>
+          <hr class="ud-card-divider">
+          <div class="ud-card-activity">
+            <div class="ud-card-field">
+              <div class="ud-card-label">1ère connexion aujourd'hui</div>
+              <div class="ud-card-val" id="ud-first-${safeId}"><span class="blink">…</span></div>
+            </div>
+            <div class="ud-card-field">
+              <div class="ud-card-label">Dernière activité</div>
+              <div class="ud-card-val" id="ud-last-${safeId}"><span class="blink">…</span></div>
+            </div>
+          </div>`;
+
+        card.querySelector('.btn-goto').addEventListener('click', () => navigateToDevice(d.id));
+        $('ud-cards').appendChild(card);
+      });
+
+      // Sign-in log des 7 derniers jours
+      $('ud-signins').style.display = 'none';
+      $('ud-signins-body').innerHTML = '<div class="loading" style="padding:12px 0"><div class="spinner"></div></div>';
+      api(`/api/users/${user.id}/signins?days=7`)
+        .then(signins => {
+          const wrap = $('ud-signins-body');
+          if (!signins.length) {
+            wrap.innerHTML = '<div class="empty" style="padding:10px 0;font-size:12px">Aucune connexion sur 7 jours.</div>';
+          } else {
+            const rows = signins.map(s => {
+              const ok = s.status?.errorCode === 0;
+              const loc = [s.location?.city, s.location?.countryOrRegion].filter(Boolean).join(', ') || '—';
+              const app = s.appDisplayName || s.clientAppUsed || '—';
+              const dev = s.deviceDetail?.displayName || '—';
+              return `<tr>
+                <td class="muted" style="white-space:nowrap">${fmtDateTime(s.createdDateTime)}</td>
+                <td>${app}</td>
+                <td class="muted">${dev}</td>
+                <td class="muted">${s.ipAddress || '—'}</td>
+                <td class="muted">${loc}</td>
+                <td><span class="signin-status ${ok ? 'ok' : 'fail'}">${ok ? 'Succès' : 'Échec'}</span></td>
+              </tr>`;
+            }).join('');
+            wrap.innerHTML = `
+              <div class="table-wrap" style="margin-top:0">
+                <table class="signin-table">
+                  <thead><tr>
+                    <th>Date / Heure</th><th>Application</th><th>Appareil</th>
+                    <th>IP</th><th>Localisation</th><th>Statut</th>
+                  </tr></thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>`;
+          }
+          $('ud-signins').style.display = '';
+        })
+        .catch(() => {
+          $('ud-signins-body').innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">Sign-in log non disponible (permission AuditLog.Read.All requise).</div>';
+          $('ud-signins').style.display = '';
         });
 
-        // Charger les logons pour chaque appareil en parallèle
-        devs.forEach(d => {
-          const safeId = d.id.replace(/[^a-z0-9]/gi, '');
-          api(`/api/devices/${d.id}/logons`)
-            .then(logons => {
-              const { firstToday, lastActivity } = logonStats(logons);
-              const elF = document.getElementById(`ud-first-${safeId}`);
-              const elL = document.getElementById(`ud-last-${safeId}`);
-              if (elF) elF.textContent = firstToday ? fmtTime(firstToday.lastLogOnDateTime) : '—';
-              if (elL) elL.textContent = lastActivity ? fmtDateTime(lastActivity.lastLogOnDateTime) : '—';
-            })
-            .catch(() => {
-              const elF = document.getElementById(`ud-first-${safeId}`);
-              const elL = document.getElementById(`ud-last-${safeId}`);
-              if (elF) elF.textContent = '—';
-              if (elL) elL.textContent = '—';
-            });
-        });
-      }
+      // Logons en parallèle
+      devs.forEach(d => {
+        const safeId = d.id.replace(/[^a-z0-9]/gi, '');
+        api(`/api/devices/${d.id}/logons`)
+          .then(logons => {
+            const { firstToday, lastActivity } = logonStats(logons);
+            const elF = document.getElementById(`ud-first-${safeId}`);
+            const elL = document.getElementById(`ud-last-${safeId}`);
+            if (elF) elF.textContent = firstToday ? fmtTime(firstToday.lastLogOnDateTime) : '—';
+            if (elL) elL.textContent = lastActivity ? fmtDateTime(lastActivity.lastLogOnDateTime) : '—';
+          })
+          .catch(() => {
+            const elF = document.getElementById(`ud-first-${safeId}`);
+            const elL = document.getElementById(`ud-last-${safeId}`);
+            if (elF) elF.textContent = '—';
+            if (elL) elL.textContent = '—';
+          });
+      });
+
     } catch(e) {
-      $('ud-body').innerHTML = `<tr><td colspan="6" style="color:var(--red);font-size:12px;padding:12px 16px">Erreur : ${e.message}</td></tr>`;
+      $('ud-cards').innerHTML = `<div style="color:var(--red);font-size:12px;padding:12px 0">Erreur : ${e.message}</div>`;
     }
   }
 

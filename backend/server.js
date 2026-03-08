@@ -17,6 +17,7 @@ const authRouter = require('./routes/auth');
 
 
 const app = express();
+app.set('trust proxy', 1); // required behind IIS/iisnode (named pipe — no TCP IP)
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 

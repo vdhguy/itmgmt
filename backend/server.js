@@ -68,7 +68,12 @@ app.use((req, res, next) => {
 });
 
 // ── PROTECTED API ROUTES
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 2000 });
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 2000,
+    keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] || 'internal',
+    validate: { ip: false }
+});
 app.use('/api', limiter);
 app.use('/api/devices', devicesRouter);
 app.use('/api/inventory', inventoryRouter);

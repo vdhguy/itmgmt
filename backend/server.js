@@ -55,6 +55,10 @@ app.use(session({
 // ── PUBLIC ROUTES (no auth required)
 app.use('/auth', authRouter);
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/version', (req, res) => {
+    const v = require('./version.json');
+    res.json({ version: `${v.major}.${v.minor}` });
+});
 
 // ── GATE: redirect unauthenticated users; return 401 for API calls
 const PUBLIC_PATHS = ['/login.html', '/css/', '/js/', '/img/'];

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon --watch . --ext js,json,env server.js"
+    "dev": "nodemon --watch . --ext js,json,env server.js",
+    "version:bump": "node -e \"const fs=require('fs'),v=require('./version.json');v.minor++;fs.writeFileSync('./version.json',JSON.stringify(v,null,2)+'\\n');console.log('Version: '+v.major+'.'+v.minor);\""
   },
   "dependencies": {
     "@azure/msal-node": "^2.0.0",

@@ -1,3 +1,9 @@
+  // ── VERSION
+  fetch('/api/version').then(r => r.json()).then(d => {
+    const el = document.getElementById('app-version');
+    if (el && d.version) el.textContent = `v${d.version}`;
+  }).catch(() => {});
+
   // ── STATE
   let devices = [], selRow = null, activeUserCard = null;
   let sortCol = 'deviceName', sortDir = 1; // 1=asc, -1=desc

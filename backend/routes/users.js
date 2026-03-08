@@ -59,11 +59,12 @@ router.get('/:id/glpi-tickets', async (req, res) => {
         console.log('[GLPI] glpiUserId =', glpiUserId);
 
         // 2. Get open tickets with title, status, date for this requester
-        // Récupère tous les tickets du demandeur (pas de filtre statut côté GLPI — lessthan est ≤, pas <)
+        // range=0-999 pour contourner la pagination GLPI (15 par défaut)
         const ticketSearch = await axios.get(
             `${sess.url}/search/Ticket` +
             `?criteria[0][field]=4&criteria[0][searchtype]=equals&criteria[0][value]=${glpiUserId}` +
-            `&forcedisplay[0]=2&forcedisplay[1]=1&forcedisplay[2]=12&forcedisplay[3]=15`,
+            `&forcedisplay[0]=2&forcedisplay[1]=1&forcedisplay[2]=12&forcedisplay[3]=15` +
+            `&range=0-999`,
             { headers: sess.headers, httpsAgent: glpiAgent }
         );
         console.log('[GLPI] ticketSearch totalcount=', ticketSearch.data?.totalcount, 'raw=', JSON.stringify(ticketSearch.data?.data));

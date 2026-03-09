@@ -126,7 +126,13 @@
 <div class="panel" id="panel">
   <div class="panel-head">
     <div class="panel-title" id="p-name">—</div>
-    <button class="panel-x" id="p-close">✕</button>
+    <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:10px">
+      <button id="p-tv-btn" class="btn-tv" hidden title="Se connecter via TeamViewer">
+        <svg width="16" height="16" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="currentColor"/><circle cx="50" cy="50" r="28" fill="white"/><rect x="44" y="20" width="12" height="60" rx="6" fill="currentColor"/><rect x="20" y="44" width="60" height="12" rx="6" fill="currentColor"/></svg>
+        TeamViewer
+      </button>
+      <button class="panel-x" id="p-close">✕</button>
+    </div>
   </div>
   <div class="panel-body">
     <div class="section">
@@ -146,6 +152,7 @@
       <div id="p-security" class="sec-badges">
         <div id="p-av-badge" class="sec-badge loading">Chargement Defender…</div>
         <div id="p-vuln-badge" class="sec-badge loading">Chargement vulnérabilités…</div>
+        <div id="p-exploit-badge" style="display:none"></div>
         <div id="p-vuln-detail" style="display:none"></div>
       </div>
     </div>

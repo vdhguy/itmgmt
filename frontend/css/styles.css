@@ -252,6 +252,27 @@
     }
     .panel-x:hover { border-color: var(--red); color: var(--red); background: #fdf0ef; }
 
+    .btn-tv {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: 700;
+      font-family: var(--font-body); text-decoration: none; cursor: pointer;
+      border: 1.5px solid #0e7ab5; color: #0e7ab5; background: #e8f4fb;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-tv:hover { background: #0e7ab5; color: #fff; }
+    .btn-tv.online {
+      border-color: #18a051; color: #fff; background: #18a051;
+      animation: tv-pulse 2s infinite;
+    }
+    .btn-tv.online:hover { background: #148042; border-color: #148042; animation: none; }
+    .btn-tv.offline { border-color: var(--border); color: var(--text-muted); background: var(--surface-2); pointer-events: none; opacity: 0.7; }
+    .btn-tv.busy { border-color: #b07800; color: #b07800; background: #fdf8ed; }
+    .btn-tv.busy:hover { background: #b07800; color: #fff; }
+    @keyframes tv-pulse {
+      0%, 100% { box-shadow: 0 0 0 3px #18a05133; }
+      50% { box-shadow: 0 0 0 6px #18a05111; }
+    }
+
     .panel-body { padding: 18px 20px; }
 
     .section { margin-bottom: 22px; }
@@ -359,8 +380,13 @@
     .vuln-table th { text-align: left; font-weight: 600; color: var(--text-muted); padding: 4px 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; }
     .vuln-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
     .vuln-table tr:last-child td { border-bottom: none; }
-    .vuln-table td:first-child { text-transform: capitalize; }
+    .vuln-id { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); }
     .vuln-count { display: inline-block; background: var(--red); color: #fff; font-weight: 700; font-size: 10px; padding: 1px 6px; border-radius: 10px; }
+    .vuln-sev { display: inline-block; font-weight: 700; font-size: 10px; padding: 1px 7px; border-radius: 10px; }
+    .vuln-sev.critical { background: #fde8e8; color: #c0392b; }
+    .vuln-sev.high     { background: #fef3e2; color: #b07800; }
+    .vuln-sev.medium   { background: #fff8e1; color: #7a6000; }
+    .vuln-sev.low      { background: #e8f5e9; color: #2e7d32; }
 
     /* ── USER SEARCH ── */
     .user-search-wrap {
@@ -618,7 +644,11 @@
 
     .sec-badge.clickable { cursor: pointer; }
     .sec-badge.clickable:hover { filter: brightness(0.92); }
-    .sec-badge.added { background: #edf7ef; border-color: var(--green); color: var(--green); }
+    .sec-badge.added  { background: #edf7ef; border-color: var(--green); color: var(--green); }
+    .sec-badge.exploit { background: #1a0a00; border-color: #e05a00; color: #ff7a2f; font-weight: 700; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .exploit-sw-list { display: flex; flex-wrap: wrap; gap: 4px; }
+    .exploit-sw { display: inline-flex; align-items: center; gap: 4px; background: #2a1200; border: 1px solid #8a3a00; border-radius: 3px; padding: 1px 7px; font-size: 10.5px; font-weight: 600; color: #ffb07a; }
+    .exploit-sw-count { background: #e05a00; color: #fff; border-radius: 10px; padding: 0 5px; font-size: 10px; font-weight: 700; }
 
     /* ── LAPS / BITLOCKER ── */
     .btn-reveal {

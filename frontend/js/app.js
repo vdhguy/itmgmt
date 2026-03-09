@@ -201,6 +201,37 @@
       })
       .catch(() => { const el = $('p-ip'); if (el) el.textContent = '—'; });
 
+    // Bouton TeamViewer
+    const tvBtn = $('p-tv-btn');
+    tvBtn.hidden = true;
+    tvBtn.className = 'btn-tv';
+    tvBtn.onclick = null;
+    if (d.deviceName) {
+      api(`/api/teamviewer/device?name=${encodeURIComponent(d.deviceName)}`)
+        .then(({ found, remotecontrol_id, online_state, reason }) => {
+          if (!found || reason === 'not_configured') return;
+          tvBtn.hidden = false;
+          const id = (remotecontrol_id || '').replace(/\D/g, '');
+          const state = (online_state || '').toLowerCase();
+          if (state === 'online' || state === 'busy') {
+            tvBtn.className = state === 'busy' ? 'btn-tv busy' : 'btn-tv online';
+            tvBtn.title = state === 'busy' ? 'Ouvrir TeamViewer — Occupé' : 'Ouvrir TeamViewer — En ligne';
+            tvBtn.onclick = () => {
+              const a = document.createElement('a');
+              a.href = `teamviewer10://control?device=${id}`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            };
+          } else {
+            tvBtn.className = 'btn-tv offline';
+            tvBtn.title = `TeamViewer — ${online_state || 'Hors ligne'}`;
+            tvBtn.onclick = null;
+          }
+        })
+        .catch(() => {});
+    }
+
     // Affichage immédiat avec les données du device
     if (d.userDisplayName || d.userPrincipalName) {
       const name = d.userDisplayName || d.userPrincipalName;
@@ -304,51 +335,78 @@
       <div class="vuln-progress-wrap"><div class="vuln-progress-bar indeterminate"></div></div>`;
     $('p-vuln-detail').style.display = 'none';
     $('p-vuln-detail').innerHTML = '';
+    $('p-exploit-badge').style.display = 'none';
+    $('p-exploit-badge').innerHTML = '';
     if (d.deviceName) {
       api(`/api/security/${encodeURIComponent(d.deviceName)}/criticalVulns`)
-        .then(({ count, breakdown }) => {
+        .then(({ count, vulns, exploitCount, exploitBySoftware }) => {
           const el = $('p-vuln-badge');
+
+          // Badge exploit + liste logiciels
+          if (exploitCount > 0) {
+            const eb = $('p-exploit-badge');
+            eb.style.display = '';
+            eb.className = 'sec-badge exploit';
+            const swList = (exploitBySoftware || []).map(s =>
+              `<span class="exploit-sw">${s.name}<span class="exploit-sw-count">${s.count}</span></span>`
+            ).join('');
+            eb.innerHTML = `<span class="sec-dot"></span> ${exploitCount} exploit${exploitCount > 1 ? 's' : ''} publics connus`
+              + (swList ? `<div class="exploit-sw-list">${swList}</div>` : '');
+          }
+
           if (count === null) {
             el.className = 'sec-badge unavail';
             el.textContent = 'Vulnérabilités : appareil non onboardé MDE';
-          } else if (count === 0) {
+            return;
+          }
+          if (count === 0) {
             el.className = 'sec-badge ok';
-            el.innerHTML = '<span class="sec-dot"></span> 0 vulnérabilité critique Microsoft';
+            el.innerHTML = '<span class="sec-dot"></span> Aucune vulnérabilité critique Microsoft';
+            return;
+          }
+
+          const label = `<span class="vuln-sev critical">${count} Critique${count > 1 ? 's' : ''}</span>`;
+          const alreadyInGroup = autopatchMembers.some(
+            m => (m.deviceId || '').toLowerCase() === (d.azureADDeviceId || '').toLowerCase()
+          );
+          if (alreadyInGroup) {
+            el.className = 'sec-badge added';
+            el.innerHTML = `<span class="sec-dot"></span> ${label} — Prêt pour mise à jour`;
           } else {
             el.className = 'sec-badge danger clickable';
             el.title = 'Cliquer pour ajouter au groupe Autopatch Test';
-            el.innerHTML = `<span class="sec-dot"></span> ${count} vulnérabilité${count > 1 ? 's' : ''} critique${count > 1 ? 's' : ''} Microsoft — <u>Ajouter au groupe test</u>`;
+            el.innerHTML = `<span class="sec-dot"></span> ${label} — <u>Ajouter au groupe test</u>`;
             el.onclick = async () => {
               if (!d.azureADDeviceId) return;
               el.className = 'sec-badge loading';
-              el.textContent = 'Ajout en cours…';
+              el.innerHTML = `<div class="spinner" style="width:12px;height:12px;border-width:2px"></div> Ajout en cours…`;
               el.onclick = null;
               try {
                 await addToAutopatchById(d.azureADDeviceId);
                 el.className = 'sec-badge added';
-                el.innerHTML = '<span class="sec-dot"></span> Ajouté au groupe Autopatch Test';
+                el.innerHTML = `<span class="sec-dot"></span> ${label} — Prêt pour mise à jour`;
               } catch(e) {
                 el.className = 'sec-badge warn';
                 el.textContent = `Erreur : ${e.message}`;
               }
             };
+          }
 
-            // Tableau de détail par logiciel
-            if (breakdown && breakdown.length) {
-              const detail = $('p-vuln-detail');
-              detail.style.display = '';
-              detail.innerHTML = `
-                <table class="vuln-table">
-                  <thead><tr><th>Logiciel Microsoft</th><th>CVE critiques</th></tr></thead>
-                  <tbody>
-                    ${breakdown.map(s => `
-                      <tr>
-                        <td>${s.name}</td>
-                        <td><span class="vuln-count">${s.criticalCount}</span></td>
-                      </tr>`).join('')}
-                  </tbody>
-                </table>`;
-            }
+          // Liste des CVE critiques Microsoft
+          if (vulns && vulns.length) {
+            const detail = $('p-vuln-detail');
+            detail.style.display = '';
+            detail.innerHTML = `
+              <table class="vuln-table">
+                <thead><tr><th>CVE</th><th>CVSS</th></tr></thead>
+                <tbody>
+                  ${vulns.map(v => `
+                    <tr>
+                      <td class="vuln-id">${v.id}</td>
+                      <td>${v.cvssV3 != null ? v.cvssV3.toFixed(1) : '—'}</td>
+                    </tr>`).join('')}
+                </tbody>
+              </table>`;
           }
         })
         .catch(e => {

@@ -73,7 +73,7 @@ router.get('/bitlocker/:aadDeviceId', async (req, res) => {
 });
 
 // GET /api/security/:deviceName/criticalVulns
-// Returns count of critical Microsoft vulnerabilities for a device (by Intune device name)
+// Returns all CVEs (Critical + High) for a device via MDE machine vulnerabilities endpoint
 router.get('/:deviceName/criticalVulns', async (req, res) => {
     try {
         const mdeToken = await getMdeAccessToken();
@@ -86,33 +86,74 @@ router.get('/:deviceName/criticalVulns', async (req, res) => {
             return res.json({ count: null }); // device not onboarded in MDE
         }
 
-        const mdeId = machine.id;
+        // 2. Get the CVEs that actually affect this machine (machine-specific)
+        const [vulnRes, swRes] = await Promise.all([
+            axios.get(mde.MACHINE_VULNS(machine.id), { headers }),
+            axios.get(mde.MACHINE_SOFTWARE(machine.id), { headers }),
+        ]);
 
-        // 2. Get installed software — keep only Microsoft products with known weaknesses
-        const swRes = await axios.get(mde.MACHINE_SOFTWARE(mdeId), { headers });
-        const msSoftware = swRes.data.value.filter(s =>
-            (s.vendor || '').toLowerCase().includes('microsoft') && (s.weaknesses || 0) > 0
+        const allMachineVulns = vulnRes.data.value || [];
+
+        // CVE IDs with known exploits on this machine (Critical or High)
+        const exploitableIds = new Set(
+            allMachineVulns.filter(v =>
+                (v.severity === 'Critical' || v.severity === 'High') &&
+                (v.publicExploit || v.exploitVerified)
+            ).map(v => v.id)
         );
 
-        if (!msSoftware.length) {
-            return res.json({ count: 0, breakdown: [] });
-        }
+        // Critical CVE IDs present on this machine
+        const machineCriticalIds = new Set(
+            allMachineVulns.filter(v => v.severity === 'Critical').map(v => v.id)
+        );
 
-        // 3. Fetch critical CVEs for each Microsoft software in parallel
-        const results = await Promise.all(
-            msSoftware.map(sw =>
+        // All software with known weaknesses (any vendor)
+        const allSoftware = (swRes.data.value || []).filter(s => (s.weaknesses || 0) > 0);
+
+        // Fetch CVEs per software in parallel
+        const swVulnResults = await Promise.all(
+            allSoftware.map(sw =>
                 axios.get(mde.SOFTWARE_VULNS(sw.id), { headers })
-                    .then(r => {
-                        const criticalCount = r.data.value.filter(v => v.severity === 'Critical').length;
-                        return criticalCount > 0 ? { name: sw.name || sw.id, criticalCount } : null;
-                    })
-                    .catch(() => null)
+                    .then(r => ({ sw, vulns: r.data.value || [] }))
+                    .catch(() => ({ sw, vulns: [] }))
             )
         );
-        const breakdown = results.filter(Boolean);
-        const count = breakdown.reduce((acc, s) => acc + s.criticalCount, 0);
 
-        res.json({ count, breakdown });
+        // Microsoft Critical CVEs (machine-specific)
+        const seenCrit = new Set();
+        const criticalVulns = [];
+        // Exploit breakdown by software
+        const seenExploit = new Set();
+        const exploitBySoftware = [];
+
+        for (const { sw, vulns } of swVulnResults) {
+            const isMicrosoft = (sw.vendor || '').toLowerCase().includes('microsoft');
+            const swExploitIds = [];
+
+            for (const v of vulns) {
+                if (isMicrosoft && v.severity === 'Critical' && machineCriticalIds.has(v.id) && !seenCrit.has(v.id)) {
+                    seenCrit.add(v.id);
+                    criticalVulns.push({ id: v.id, cvssV3: v.cvssV3 ?? null });
+                }
+                if (exploitableIds.has(v.id) && !seenExploit.has(v.id)) {
+                    seenExploit.add(v.id);
+                    swExploitIds.push(v.id);
+                }
+            }
+            if (swExploitIds.length > 0) {
+                exploitBySoftware.push({ name: sw.name || sw.id, count: swExploitIds.length });
+            }
+        }
+
+        criticalVulns.sort((a, b) => (b.cvssV3 ?? 0) - (a.cvssV3 ?? 0));
+        exploitBySoftware.sort((a, b) => b.count - a.count);
+
+        res.json({
+            count: criticalVulns.length,
+            vulns: criticalVulns.slice(0, 20),
+            exploitCount: exploitableIds.size,
+            exploitBySoftware,
+        });
     } catch (err) {
         const detail = err.response?.data || err.message;
         console.error('Error fetching vulns:', detail);

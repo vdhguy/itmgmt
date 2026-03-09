@@ -16,6 +16,7 @@ const usersRouter = require('./routes/users');
 const securityRouter = require('./routes/security');
 const autopatchRouter = require('./routes/autopatch');
 const authRouter = require('./routes/auth');
+const teamviewerRouter = require('./routes/teamviewer');
 
 
 const app = express();
@@ -86,6 +87,7 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/security', securityRouter);
 app.use('/api/autopatch', autopatchRouter);
+app.use('/api/teamviewer', teamviewerRouter);
 
 // ── STATIC (frontend)
 app.use(express.static(path.join(__dirname, '../frontend')));

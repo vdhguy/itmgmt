@@ -1,6 +1,6 @@
 const express = require('express');
 const axios = require('axios');
-const dns = require('dns').promises;
+const dns = require('dns');
 const { authMiddleware } = require('../middleware/auth');
 const graph = require('../config/graph');
 
@@ -46,16 +46,14 @@ router.get('/:id/protection', async (req, res) => {
     }
 });
 
-// GET /api/devices/resolve?hostname=xxx — DNS lookup via resolver local (srv-dc1)
-router.get('/resolve', async (req, res) => {
+// GET /api/devices/resolve?hostname=xxx — DNS lookup via resolver OS (respecte le suffixe .lasne.local)
+router.get('/resolve', (req, res) => {
     const hostname = (req.query.hostname || '').trim();
     if (!hostname) return res.json({ ips: [] });
-    try {
-        const ips = await dns.resolve4(hostname);
-        res.json({ ips });
-    } catch (err) {
-        res.json({ ips: [] });
-    }
+    dns.lookup(hostname, { all: true, family: 4 }, (err, addresses) => {
+        if (err || !addresses) return res.json({ ips: [] });
+        res.json({ ips: addresses.map(a => a.address) });
+    });
 });
 
 // GET /api/devices/:id/network — networkInterfaces (IP) via beta API

@@ -192,7 +192,14 @@
         <div class="fl">${l}</div>
         <div class="fv">${v}</div>
       </div>
-    `).join('');
+    `).join('') + `<div class="field"><div class="fl">Adresse IP</div><div class="fv" id="p-ip"><span class="blink">…</span></div></div>`;
+
+    api(`/api/devices/resolve?hostname=${encodeURIComponent(d.deviceName)}`)
+      .then(({ ips }) => {
+        const el = $('p-ip');
+        if (el) el.textContent = ips && ips.length ? ips.join(', ') : '—';
+      })
+      .catch(() => { const el = $('p-ip'); if (el) el.textContent = '—'; });
 
     // Affichage immédiat avec les données du device
     if (d.userDisplayName || d.userPrincipalName) {

@@ -11,6 +11,7 @@ module.exports = {
     USER_SIGNIN:       (id) => `${BASE}/users/${id}?$select=id,signInActivity`,
     USER_SIGNINS:      (id, since) => `${BASE}/auditLogs/signIns?$filter=userId eq '${id}' and createdDateTime ge ${since}&$top=200&$orderby=createdDateTime desc&$select=createdDateTime,appDisplayName,ipAddress,location,status,deviceDetail,clientAppUsed`,
     DEVICE_LOGONS:     (id) => `${BASE_BETA}/deviceManagement/managedDevices/${id}?$select=id,usersLoggedOn`,
+    DEVICE_NETWORK:    (id) => `${BASE_BETA}/deviceManagement/managedDevices/${id}?$select=id,networkInterfaces`,
     DEVICE_PROTECTION: (id) => `${BASE_BETA}/deviceManagement/managedDevices/${id}/windowsProtectionState`,
     // BitLocker & LAPS
     BITLOCKER_KEYS:    (deviceId) => `${BASE}/informationProtection/bitlocker/recoveryKeys?$filter=deviceId eq '${deviceId}'&$select=id,deviceId,createdDateTime,volumeType`,

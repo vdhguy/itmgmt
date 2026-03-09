@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const dns = require('dns').promises;
 const { authMiddleware } = require('../middleware/auth');
 const graph = require('../config/graph');
 
@@ -42,6 +43,31 @@ router.get('/:id/protection', async (req, res) => {
     } catch (err) {
         console.error('Error fetching protection state:', err.response?.data || err.message);
         res.status(500).json({ error: 'Failed to fetch protection state' });
+    }
+});
+
+// GET /api/devices/resolve?hostname=xxx — DNS lookup via resolver local (srv-dc1)
+router.get('/resolve', async (req, res) => {
+    const hostname = (req.query.hostname || '').trim();
+    if (!hostname) return res.json({ ips: [] });
+    try {
+        const ips = await dns.resolve4(hostname);
+        res.json({ ips });
+    } catch (err) {
+        res.json({ ips: [] });
+    }
+});
+
+// GET /api/devices/:id/network — networkInterfaces (IP) via beta API
+router.get('/:id/network', async (req, res) => {
+    try {
+        const { data } = await axios.get(graph.DEVICE_NETWORK(req.params.id), {
+            headers: { Authorization: `Bearer ${req.accessToken}` }
+        });
+        res.json(data.networkInterfaces || []);
+    } catch (err) {
+        console.error('Error fetching device network:', err.response?.data || err.message);
+        res.status(500).json({ error: 'Failed to fetch network info' });
     }
 });
 

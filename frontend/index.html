@@ -101,21 +101,34 @@
     <!-- ── AUTOPATCH / SÉCURITÉ ── -->
     <div id="v-autopatch" style="display:none">
       <div class="ap-header">
-        <div class="ap-title">Autopatch — Test Ring</div>
-        <div class="ap-desc" id="ap-group-name">Groupe : —</div>
+        <div class="ap-title">Autopatch — Deployment Rings</div>
       </div>
       <div class="ap-add">
         <select id="ap-add-sel" class="ap-select">
           <option value="">Choisir un appareil à ajouter…</option>
+        </select>
+        <select id="ap-ring-sel" class="ap-select ap-select-ring">
+          <option value="test">Ring Test</option>
+          <option value="last">Ring Last</option>
         </select>
         <button class="btn-search" id="ap-add-btn">Ajouter</button>
       </div>
       <div id="ap-loading" class="loading" style="display:none">
         <div class="spinner"></div><span>Chargement…</span>
       </div>
-      <div class="table-wrap" id="ap-members-wrap" style="display:none">
-        <div id="ap-members-list"></div>
-        <div id="ap-empty" class="empty" style="display:none;padding:20px 16px">Aucun appareil dans ce groupe.</div>
+      <div id="ap-members-wrap" style="display:none">
+        <div class="ap-rings">
+          <div class="ap-ring-col">
+            <div class="ap-ring-head">Ring Test <span class="ap-ring-count" id="ap-test-count"></span></div>
+            <div id="ap-test-list"></div>
+            <div class="empty" id="ap-test-empty" style="display:none;padding:16px">Aucun appareil.</div>
+          </div>
+          <div class="ap-ring-col">
+            <div class="ap-ring-head">Ring Last <span class="ap-ring-count" id="ap-last-count"></span></div>
+            <div id="ap-last-list"></div>
+            <div class="empty" id="ap-last-empty" style="display:none;padding:16px">Aucun appareil.</div>
+          </div>
+        </div>
       </div>
     </div>
 

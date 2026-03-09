@@ -621,17 +621,32 @@
     }
     .ap-select:focus { border-color: var(--accent); }
 
+    .ap-rings { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .ap-ring-col { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+    .ap-ring-head { padding: 10px 16px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); background: var(--surface-2); border-bottom: 1px solid var(--border); }
+    .ap-ring-count { font-weight: 400; margin-left: 4px; }
+    .ap-select-ring { flex: 0 0 auto; max-width: 130px; }
+
     .ap-member {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
       background: var(--surface); transition: background 0.1s;
       animation: up 0.25s ease both;
     }
-    .ap-member:first-child { border-radius: 6px 6px 0 0; }
-    .ap-member:last-child  { border-bottom: none; border-radius: 0 0 6px 6px; }
-    .ap-member:only-child  { border-radius: 6px; }
+    .ap-member:last-child  { border-bottom: none; }
     .ap-member:hover { background: var(--surface-2); }
     .ap-member-name { font-weight: 600; font-size: 13px; }
+    .ap-member-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .ap-btn-sm {
+      padding: 3px 9px; font-size: 10.5px; font-weight: 700;
+      border-radius: 4px; cursor: pointer; font-family: var(--font-body);
+      transition: all 0.15s;
+    }
+    .btn-remove.ap-btn-sm { border: 1px solid var(--red); background: transparent; color: var(--red); }
+    .btn-remove.ap-btn-sm:hover:not(:disabled) { background: var(--red); color: white; }
+    .btn-transfer.ap-btn-sm { border: 1px solid var(--accent); background: transparent; color: var(--accent); }
+    .btn-transfer.ap-btn-sm:hover:not(:disabled) { background: var(--accent); color: white; }
+    .ap-btn-sm:disabled { opacity: 0.5; cursor: default; }
 
     .btn-remove {
       padding: 4px 12px; font-size: 11px; font-weight: 700;

@@ -11,7 +11,8 @@
   // ── STATE
   let devices = [], selRow = null, activeUserCard = null;
   let sortCol = 'deviceName', sortDir = 1; // 1=asc, -1=desc
-  let autopatchMembers = [];
+  let autopatchMembers = [];      // Test ring (pour le panel appareil)
+  let autopatchMembersLast = [];  // Last ring
 
   // ── UTILS
   const $ = id => document.getElementById(id);
@@ -366,25 +367,59 @@
           }
 
           const label = `<span class="vuln-sev critical">${count} Critique${count > 1 ? 's' : ''}</span>`;
-          const alreadyInGroup = autopatchMembers.some(
-            m => (m.deviceId || '').toLowerCase() === (d.azureADDeviceId || '').toLowerCase()
-          );
-          if (alreadyInGroup) {
+          const devId = (d.azureADDeviceId || '').toLowerCase();
+          const inTest = autopatchMembers.some(m => (m.deviceId || '').toLowerCase() === devId);
+          const inLast = autopatchMembersLast.some(m => (m.deviceId || '').toLowerCase() === devId);
+
+          if (inLast) {
             el.className = 'sec-badge added';
-            el.innerHTML = `<span class="sec-dot"></span> ${label} — Prêt pour mise à jour`;
+            el.innerHTML = `<span class="sec-dot"></span> ${label} — Ring Last`;
+          } else if (inTest) {
+            el.className = 'sec-badge added';
+            el.innerHTML = `<span class="sec-dot"></span> ${label} — Ring Test`;
+            // Bouton transfert Test → Last
+            el.style.flexDirection = 'column'; el.style.alignItems = 'flex-start'; el.style.gap = '6px';
+            const transferBtn = document.createElement('button');
+            transferBtn.className = 'ap-btn-sm btn-transfer';
+            transferBtn.textContent = 'Transférer → Ring Last';
+            transferBtn.style.cssText = 'font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;border:1px solid currentColor;background:transparent;color:inherit;';
+            transferBtn.onclick = async () => {
+              transferBtn.disabled = true; transferBtn.textContent = '…';
+              try {
+                await api('/api/autopatch/transfer', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ azureADDeviceId: d.azureADDeviceId, from: 'test', to: 'last' }),
+                });
+                // Mise à jour optimiste
+                const devId = (d.azureADDeviceId || '').toLowerCase();
+                const moved = autopatchMembers.find(m => (m.deviceId || '').toLowerCase() === devId);
+                autopatchMembers = autopatchMembers.filter(m => (m.deviceId || '').toLowerCase() !== devId);
+                if (moved && !autopatchMembersLast.some(m => (m.deviceId || '').toLowerCase() === devId)) {
+                  autopatchMembersLast.push(moved);
+                }
+                renderAutopatch();
+                el.innerHTML = `<span class="sec-dot"></span> ${label} — Ring Last`;
+                el.style.flexDirection = ''; el.style.alignItems = ''; el.style.gap = '';
+              } catch(e) {
+                el.className = 'sec-badge warn';
+                el.textContent = `Erreur : ${e.message}`;
+              }
+            };
+            el.appendChild(transferBtn);
           } else {
             el.className = 'sec-badge danger clickable';
-            el.title = 'Cliquer pour ajouter au groupe Autopatch Test';
-            el.innerHTML = `<span class="sec-dot"></span> ${label} — <u>Ajouter au groupe test</u>`;
+            el.title = 'Cliquer pour ajouter au Ring Test';
+            el.innerHTML = `<span class="sec-dot"></span> ${label} — <u>Ajouter au Ring Test</u>`;
             el.onclick = async () => {
               if (!d.azureADDeviceId) return;
               el.className = 'sec-badge loading';
               el.innerHTML = `<div class="spinner" style="width:12px;height:12px;border-width:2px"></div> Ajout en cours…`;
               el.onclick = null;
               try {
-                await addToAutopatchById(d.azureADDeviceId);
+                await addToAutopatchById(d.azureADDeviceId, 'test');
                 el.className = 'sec-badge added';
-                el.innerHTML = `<span class="sec-dot"></span> ${label} — Prêt pour mise à jour`;
+                el.innerHTML = `<span class="sec-dot"></span> ${label} — Ring Test`;
               } catch(e) {
                 el.className = 'sec-badge warn';
                 el.textContent = `Erreur : ${e.message}`;
@@ -523,12 +558,10 @@
     $('ap-loading').style.display = 'flex';
     $('ap-members-wrap').style.display = 'none';
     try {
-      const [members, cfg] = await Promise.all([
-        api('/api/autopatch/members'),
-        api('/api/autopatch/config'),
+      [autopatchMembers, autopatchMembersLast] = await Promise.all([
+        api('/api/autopatch/members?ring=test'),
+        api('/api/autopatch/members?ring=last'),
       ]);
-      autopatchMembers = members;
-      $('ap-group-name').textContent = `Groupe : ${cfg.groupName}`;
     } catch(e) {
       $('ap-loading').innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
       return;
@@ -539,22 +572,29 @@
     populateAutopatchSelect();
   }
 
-  function renderAutopatch() {
-    const list = $('ap-members-list');
+  function renderRingList(containerId, emptyId, countId, members, ring) {
+    const list = $(containerId);
     list.innerHTML = '';
-    $('ap-empty').style.display = autopatchMembers.length ? 'none' : '';
-    autopatchMembers.forEach(m => {
+    $(emptyId).style.display = members.length ? 'none' : '';
+    $(countId).textContent = members.length ? `(${members.length})` : '';
+    const otherRing = ring === 'test' ? 'last' : 'test';
+    const otherLabel = ring === 'test' ? 'Transférer → Last' : 'Transférer → Test';
+    members.forEach(m => {
       const div = document.createElement('div');
       div.className = 'ap-member';
       div.innerHTML = `
         <div class="ap-member-name">${m.displayName || '—'}</div>
-        <button class="btn-remove" data-id="${m.id}">Retirer</button>
+        <div class="ap-member-actions">
+          <button class="btn-transfer ap-btn-sm">${otherLabel}</button>
+          <button class="btn-remove ap-btn-sm">Retirer</button>
+        </div>
       `;
       div.querySelector('.btn-remove').addEventListener('click', async function() {
         this.disabled = true; this.textContent = '…';
         try {
-          await api(`/api/autopatch/members/${m.id}`, { method: 'DELETE' });
-          autopatchMembers = autopatchMembers.filter(x => x.id !== m.id);
+          await api(`/api/autopatch/members/${m.id}?ring=${ring}`, { method: 'DELETE' });
+          if (ring === 'test') autopatchMembers = autopatchMembers.filter(x => x.id !== m.id);
+          else autopatchMembersLast = autopatchMembersLast.filter(x => x.id !== m.id);
           renderAutopatch();
           populateAutopatchSelect();
         } catch(e) {
@@ -562,16 +602,47 @@
           this.disabled = false; this.textContent = 'Retirer';
         }
       });
+      div.querySelector('.btn-transfer').addEventListener('click', async function() {
+        this.disabled = true; this.textContent = '…';
+        try {
+          await api('/api/autopatch/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ azureADDeviceId: m.deviceId, from: ring, to: otherRing }),
+          });
+          // Mise à jour optimiste : déplace localement sans attendre la propagation Azure AD
+          if (ring === 'test') {
+            autopatchMembers = autopatchMembers.filter(x => x.id !== m.id);
+            if (!autopatchMembersLast.some(x => x.id === m.id)) autopatchMembersLast.push(m);
+          } else {
+            autopatchMembersLast = autopatchMembersLast.filter(x => x.id !== m.id);
+            if (!autopatchMembers.some(x => x.id === m.id)) autopatchMembers.push(m);
+          }
+          renderAutopatch();
+          populateAutopatchSelect();
+        } catch(e) {
+          alert(`Erreur : ${e.message}`);
+          this.disabled = false; this.textContent = otherLabel;
+        }
+      });
       list.appendChild(div);
     });
   }
 
+  function renderAutopatch() {
+    renderRingList('ap-test-list', 'ap-test-empty', 'ap-test-count', autopatchMembers, 'test');
+    renderRingList('ap-last-list', 'ap-last-empty', 'ap-last-count', autopatchMembersLast, 'last');
+  }
+
   function populateAutopatchSelect() {
     const sel = $('ap-add-sel');
-    const memberIds = new Set(autopatchMembers.map(m => (m.deviceId || '').toLowerCase()));
+    const allMemberIds = new Set([
+      ...autopatchMembers.map(m => (m.deviceId || '').toLowerCase()),
+      ...autopatchMembersLast.map(m => (m.deviceId || '').toLowerCase()),
+    ]);
     sel.innerHTML = '<option value="">Choisir un appareil à ajouter…</option>';
     [...devices]
-      .filter(d => d.azureADDeviceId && !memberIds.has(d.azureADDeviceId.toLowerCase()))
+      .filter(d => d.azureADDeviceId && !allMemberIds.has(d.azureADDeviceId.toLowerCase()))
       .sort((a, b) => (a.deviceName || '').localeCompare(b.deviceName || '', 'fr'))
       .forEach(d => {
         const opt = document.createElement('option');
@@ -581,26 +652,29 @@
       });
   }
 
-  async function addToAutopatchById(azureADDeviceId) {
-    const r = await api('/api/autopatch/members', {
+  async function addToAutopatchById(azureADDeviceId, ring = 'test') {
+    await api('/api/autopatch/members', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ azureADDeviceId })
+      body: JSON.stringify({ azureADDeviceId, ring })
     });
-    autopatchMembers = await api('/api/autopatch/members');
+    [autopatchMembers, autopatchMembersLast] = await Promise.all([
+      api('/api/autopatch/members?ring=test'),
+      api('/api/autopatch/members?ring=last'),
+    ]);
     renderAutopatch();
     populateAutopatchSelect();
-    return r;
   }
 
   $('ap-add-btn').addEventListener('click', async () => {
     const sel = $('ap-add-sel');
     const azureADDeviceId = sel.value;
     if (!azureADDeviceId) return;
+    const ring = $('ap-ring-sel').value;
     const btn = $('ap-add-btn');
     btn.disabled = true; btn.textContent = '…';
     try {
-      await addToAutopatchById(azureADDeviceId);
+      await addToAutopatchById(azureADDeviceId, ring);
     } catch(e) {
       alert(`Erreur lors de l'ajout : ${e.message}`);
     }

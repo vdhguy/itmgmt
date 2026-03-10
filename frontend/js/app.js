@@ -907,6 +907,123 @@
   $('btn-user-search').addEventListener('click', searchUsers);
   $('q-user').addEventListener('keydown', e => { if (e.key === 'Enter') searchUsers(); });
 
+  // ── FIREWALL
+  let fwAutoRefresh = null;
+
+  function fwBytes(b) {
+    if (!b) return '—';
+    if (b >= 1073741824) return (b / 1073741824).toFixed(1) + ' GB';
+    if (b >= 1048576)    return (b / 1048576).toFixed(1) + ' MB';
+    if (b >= 1024)       return (b / 1024).toFixed(0) + ' KB';
+    return b + ' B';
+  }
+
+  function fwDuration(sec) {
+    if (!sec) return '—';
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (h > 0) return `${h}h ${m.toString().padStart(2,'0')}m`;
+    if (m > 0) return `${m}m ${s.toString().padStart(2,'0')}s`;
+    return `${s}s`;
+  }
+
+  function fwTimestamp(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })
+      + ' ' + d.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit' });
+  }
+
+  function renderHubs(hubs) {
+    const container = $('fw-hubs');
+    container.innerHTML = (hubs || []).map(h => {
+      const statusClass = h.up === null ? 'hub-unknown' : h.up ? 'hub-up' : 'hub-down';
+      const statusLabel = h.up === null ? 'Inconnu' : h.up ? 'Actif' : 'Hors ligne';
+      const trafficHtml = h.up && (h.incoming || h.outgoing) ? `
+        <div class="hub-traffic">
+          <span>↓ ${fwBytes(h.incoming)}</span>
+          <span>↑ ${fwBytes(h.outgoing)}</span>
+        </div>` : '';
+      const ipHtml = h.up && h.remoteIp !== '—' ? `<div class="hub-ip">${h.remoteIp}</div>` : '';
+      return `
+        <div class="hub-card ${statusClass}">
+          <div class="hub-card-top">
+            <span class="hub-num">Hub ${h.hub}</span>
+            <span class="hub-status-dot"></span>
+          </div>
+          <div class="hub-site">${h.site}</div>
+          ${ipHtml}
+          <div class="hub-footer">
+            <span class="hub-status-label">${statusLabel}</span>
+            ${trafficHtml}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function loadFirewall() {
+    $('fw-loading').style.display = 'flex';
+    $('fw-error').style.display = 'none';
+    $('fw-hubs').innerHTML = '';
+    $('fw-ssl-table').style.display = 'none';
+    $('fw-ssl-empty').style.display = 'none';
+    $('fw-ipsec-table').style.display = 'none';
+    $('fw-ipsec-empty').style.display = 'none';
+    try {
+      const { ssl, ipsec, hubs, error } = await api('/api/firewall/vpn');
+      $('fw-loading').style.display = 'none';
+
+      if (error === 'not_configured') {
+        $('fw-error').style.display = '';
+        $('fw-error').innerHTML = '<div class="empty" style="padding:40px;color:var(--text-muted)">FortiGate non configuré.</div>';
+        return;
+      }
+
+      // Hub cards
+      renderHubs(hubs);
+
+      // SSL VPN
+      $('fw-ssl-count').textContent = ssl.length ? `(${ssl.length})` : '';
+      if (ssl.length === 0) {
+        $('fw-ssl-empty').style.display = '';
+      } else {
+        $('fw-ssl-table').style.display = '';
+        $('fw-ssl-body').innerHTML = ssl.map(s => `
+          <tr class="fw-row">
+            <td><span class="fw-user">${s.username}</span></td>
+            <td class="fw-mono">${s.remoteIp}</td>
+            <td class="fw-mono">${s.tunnelIp}</td>
+            <td>${fwTimestamp(s.connectedSince)}</td>
+            <td>${fwDuration(s.duration)}</td>
+            <td class="fw-bytes">${fwBytes(s.inBytes)}</td>
+            <td class="fw-bytes">${fwBytes(s.outBytes)}</td>
+          </tr>`).join('');
+      }
+
+      // IPSec hors-hubs
+      $('fw-ipsec-count').textContent = ipsec.length ? `(${ipsec.length})` : '';
+      if (ipsec.length === 0) {
+        $('fw-ipsec-empty').style.display = '';
+      } else {
+        $('fw-ipsec-table').style.display = '';
+        $('fw-ipsec-body').innerHTML = ipsec.map(t => `
+          <tr class="fw-row">
+            <td><span class="fw-tunnel">${t.name}</span></td>
+            <td class="fw-mono">${t.remoteIp}</td>
+            <td class="fw-bytes">${fwBytes(t.incoming)}</td>
+            <td class="fw-bytes">${fwBytes(t.outgoing)}</td>
+          </tr>`).join('');
+      }
+
+      $('fw-last-update').textContent = 'Mis à jour : ' + new Date().toLocaleTimeString('fr-BE');
+    } catch (e) {
+      $('fw-loading').style.display = 'none';
+      $('fw-error').style.display = '';
+      $('fw-error').innerHTML = `<div class="sec-badge warn" style="margin:0">Erreur FortiGate : ${e.message}</div>`;
+    }
+  }
+
+  $('fw-refresh').addEventListener('click', loadFirewall);
+
   // ── TABS
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -917,7 +1034,9 @@
       $('v-devices').style.display     = tab==='devices'     ? '' : 'none';
       $('v-user-search').style.display = tab==='user-search' ? '' : 'none';
       $('v-autopatch').style.display   = tab==='autopatch'   ? '' : 'none';
+      $('v-firewall').style.display    = tab==='firewall'    ? '' : 'none';
       if (tab === 'autopatch') loadAutopatch();
+      if (tab === 'firewall')  loadFirewall();
     });
   });
 

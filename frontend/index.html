@@ -20,6 +20,7 @@
     <button class="tab active" data-tab="devices">Appareils</button>
     <button class="tab" data-tab="user-search">Utilisateur</button>
     <button class="tab" data-tab="autopatch">Sécurité</button>
+    <button class="tab" data-tab="firewall">Firewall</button>
   </nav>
 
   <div class="status">
@@ -128,6 +129,78 @@
             <div id="ap-last-list"></div>
             <div class="empty" id="ap-last-empty" style="display:none;padding:16px">Aucun appareil.</div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FIREWALL ── -->
+    <div id="v-firewall" style="display:none">
+      <div class="fw-header">
+        <div class="fw-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          FortiGate — Utilisateurs VPN actifs
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="fw-last-update" id="fw-last-update"></span>
+          <button class="btn-search" id="fw-refresh" style="padding:6px 14px;font-size:12px">&#8635; Actualiser</button>
+        </div>
+      </div>
+
+      <div id="fw-loading" class="loading" style="display:none">
+        <div class="spinner"></div><span>Connexion à FortiGate…</span>
+      </div>
+      <div id="fw-error" style="display:none"></div>
+
+      <!-- HUB CARDS -->
+      <div class="fw-section-head" style="margin-bottom:12px">
+        <span class="fw-section-title">Sites distants — IPSec</span>
+      </div>
+      <div id="fw-hubs" class="fw-hubs-grid"></div>
+
+      <!-- SSL VPN -->
+      <div id="fw-ssl-wrap">
+        <div class="fw-section-head">
+          <span class="fw-section-title">SSL VPN</span>
+          <span class="fw-count" id="fw-ssl-count"></span>
+        </div>
+        <div id="fw-ssl-empty" class="empty" style="display:none;padding:20px 16px">Aucun utilisateur SSL VPN connecté.</div>
+        <div class="fw-table-wrap" id="fw-ssl-table" style="display:none">
+          <table class="fw-table">
+            <thead>
+              <tr>
+                <th>Utilisateur</th>
+                <th>IP client</th>
+                <th>IP tunnel</th>
+                <th>Connecté depuis</th>
+                <th>Durée</th>
+                <th>↓ Reçu</th>
+                <th>↑ Envoyé</th>
+              </tr>
+            </thead>
+            <tbody id="fw-ssl-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- IPSec VPN -->
+      <div id="fw-ipsec-wrap" style="margin-top:28px">
+        <div class="fw-section-head">
+          <span class="fw-section-title">IPSec VPN</span>
+          <span class="fw-count" id="fw-ipsec-count"></span>
+        </div>
+        <div id="fw-ipsec-empty" class="empty" style="display:none;padding:20px 16px">Aucun tunnel IPSec actif.</div>
+        <div class="fw-table-wrap" id="fw-ipsec-table" style="display:none">
+          <table class="fw-table">
+            <thead>
+              <tr>
+                <th>Nom du tunnel</th>
+                <th>IP distante</th>
+                <th>↓ Reçu</th>
+                <th>↑ Envoyé</th>
+              </tr>
+            </thead>
+            <tbody id="fw-ipsec-body"></tbody>
+          </table>
         </div>
       </div>
     </div>

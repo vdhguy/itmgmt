@@ -575,6 +575,9 @@
   function renderRingList(containerId, emptyId, countId, members, ring) {
     const list = $(containerId);
     list.innerHTML = '';
+    members = [...members].sort((a, b) =>
+      (a.displayName || '').localeCompare(b.displayName || '', 'fr', { sensitivity: 'base' })
+    );
     $(emptyId).style.display = members.length ? 'none' : '';
     $(countId).textContent = members.length ? `(${members.length})` : '';
     const otherRing = ring === 'test' ? 'last' : 'test';
@@ -634,23 +637,46 @@
     renderRingList('ap-last-list', 'ap-last-empty', 'ap-last-count', autopatchMembersLast, 'last');
   }
 
+  // Combobox autopatch — liste des appareils filtrables
+  let apComboDevices = []; // appareils éligibles (hors membres actuels)
+
   function populateAutopatchSelect() {
-    const sel = $('ap-add-sel');
     const allMemberIds = new Set([
       ...autopatchMembers.map(m => (m.deviceId || '').toLowerCase()),
       ...autopatchMembersLast.map(m => (m.deviceId || '').toLowerCase()),
     ]);
-    sel.innerHTML = '<option value="">Choisir un appareil à ajouter…</option>';
-    [...devices]
+    apComboDevices = [...devices]
       .filter(d => d.azureADDeviceId && !allMemberIds.has(d.azureADDeviceId.toLowerCase()))
-      .sort((a, b) => (a.deviceName || '').localeCompare(b.deviceName || '', 'fr'))
-      .forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.azureADDeviceId;
-        opt.textContent = d.deviceName;
-        sel.appendChild(opt);
-      });
+      .sort((a, b) => (a.deviceName || '').localeCompare(b.deviceName || '', 'fr'));
+    // Réinitialise la sélection
+    $('ap-add-sel').value = '';
+    $('ap-add-input').value = '';
   }
+
+  function apComboFilter(q) {
+    const drop = $('ap-add-dropdown');
+    const lower = q.toLowerCase();
+    const matches = apComboDevices.filter(d =>
+      !lower || (d.deviceName || '').toLowerCase().includes(lower)
+    );
+    if (!matches.length || !q) { drop.style.display = 'none'; return; }
+    drop.innerHTML = matches.slice(0, 30).map(d =>
+      `<div class="ap-combo-opt" data-id="${d.azureADDeviceId}">${d.deviceName}</div>`
+    ).join('');
+    drop.style.display = '';
+    drop.querySelectorAll('.ap-combo-opt').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        $('ap-add-sel').value = el.dataset.id;
+        $('ap-add-input').value = el.textContent;
+        drop.style.display = 'none';
+      });
+    });
+  }
+
+  $('ap-add-input').addEventListener('input', () => apComboFilter($('ap-add-input').value));
+  $('ap-add-input').addEventListener('focus', () => apComboFilter($('ap-add-input').value));
+  $('ap-add-input').addEventListener('blur',  () => setTimeout(() => { $('ap-add-dropdown').style.display = 'none'; }, 150));
 
   async function addToAutopatchById(azureADDeviceId, ring = 'test') {
     await api('/api/autopatch/members', {
@@ -667,8 +693,7 @@
   }
 
   $('ap-add-btn').addEventListener('click', async () => {
-    const sel = $('ap-add-sel');
-    const azureADDeviceId = sel.value;
+    const azureADDeviceId = $('ap-add-sel').value;
     if (!azureADDeviceId) return;
     const ring = $('ap-ring-sel').value;
     const btn = $('ap-add-btn');

@@ -105,9 +105,11 @@
         <div class="ap-title">Autopatch — Deployment Rings</div>
       </div>
       <div class="ap-add">
-        <select id="ap-add-sel" class="ap-select">
-          <option value="">Choisir un appareil à ajouter…</option>
-        </select>
+        <div class="ap-combo-wrap">
+          <input id="ap-add-input" class="ap-select ap-combo-input" type="text" placeholder="Rechercher un appareil…" autocomplete="off">
+          <input type="hidden" id="ap-add-sel">
+          <div id="ap-add-dropdown" class="ap-combo-dropdown" style="display:none"></div>
+        </div>
         <select id="ap-ring-sel" class="ap-select ap-select-ring">
           <option value="test">Ring Test</option>
           <option value="last">Ring Last</option>

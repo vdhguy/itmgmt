@@ -12,18 +12,12 @@ const FORTI_KEY  = process.env.FORTI_API_KEY;
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-// Mapping hub index → site name
-const HUB_SITES = {
-    0: 'Centre sportif de Maransart',
-    1: 'Bibliothèque de Lasne',
-    2: 'École de musique',
-    3: 'Site de la Closière',
-    4: 'Ohain — École maternelle',
-    5: 'École de Plancenoit',
-    6: 'Maransart — École maternelle',
-    7: 'Crèche Les Marmouset',
-    8: 'Maransart — École primaire',
-};
+// Mapping hub index → site name (depuis .env : FORTI_HUB_0 … FORTI_HUB_N)
+const HUB_SITES = {};
+for (let i = 0; i <= 20; i++) {
+    const val = process.env[`FORTI_HUB_${i}`];
+    if (val) HUB_SITES[i] = val;
+}
 
 function fortiHeaders() {
     return { Authorization: `Bearer ${FORTI_KEY}` };

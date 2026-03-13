@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const https = require('https');
 const { authMiddleware } = require('../middleware/auth');
+const graph = require('../config/graph');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -43,14 +44,43 @@ router.get('/vpn', async (req, res) => {
             ? (sslRes.value.data?.results || [])
             : [];
 
-        const ssl = sslRaw.map(s => ({
-            username:      s.user_name || s.username || '—',
+        const sslBase = sslRaw.map(s => ({
+            login:         s.user_name || s.username || '—',
             remoteIp:      s.remote_ip  || s.src_ip  || '—',
             tunnelIp:      s.tunnel_ip  || '—',
             connectedSince: s.login_time || s.connection_time || null,
             duration:      s.duration   || null,
             inBytes:       s.incoming   || s.in_bytes  || null,
             outBytes:      s.outgoing   || s.out_bytes || null,
+        }));
+
+        // Resolve AD display names (strip domain prefix e.g. LASNE\jdoe → jdoe)
+        const displayNames = {};
+        const uniqueLogins = [...new Set(sslBase.map(s => s.login).filter(l => l !== '—'))];
+        await Promise.all(uniqueLogins.map(async login => {
+            const sam = login.replace(/^[^\\]+\\/, '').toLowerCase();
+            const headers = { Authorization: `Bearer ${req.accessToken}` };
+            try {
+                // Try onPremisesSamAccountName first (requires ConsistencyLevel)
+                let res = await axios.get(graph.USER_BY_SAMACCOUNT(sam), {
+                    headers: { ...headers, ConsistencyLevel: 'eventual' },
+                });
+                if (res.data.value?.length) {
+                    displayNames[login] = res.data.value[0].displayName;
+                    return;
+                }
+                // Fallback: mailNickname (alias prefix, often matches login)
+                const BASE = `${process.env.GRAPH_BASE_URL || 'https://graph.microsoft.com'}/v1.0`;
+                res = await axios.get(`${BASE}/users?$filter=mailNickname eq '${sam}'&$select=displayName`, { headers });
+                if (res.data.value?.length) displayNames[login] = res.data.value[0].displayName;
+            } catch (e) {
+                console.error(`[Firewall] displayName lookup failed for "${sam}":`, e.response?.data || e.message);
+            }
+        }));
+
+        const ssl = sslBase.map(s => ({
+            ...s,
+            username: displayNames[s.login] || s.login,
         }));
 
         // ── IPSec tunnels (all, not just up — hubs need to show as offline too)

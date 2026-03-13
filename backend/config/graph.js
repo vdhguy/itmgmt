@@ -23,5 +23,6 @@ module.exports = {
     GROUP_MEMBER_ADD:  (id)   => `${BASE}/groups/${id}/members/$ref`,
     GROUP_MEMBER_DEL:  (gid, mid) => `${BASE}/groups/${gid}/members/${mid}/$ref`,
     AAD_DEVICE_BY_ID:  (devId)   => `${BASE}/devices?$filter=deviceId eq '${devId}'&$select=id,displayName`,
+    USER_BY_SAMACCOUNT:(sam)    => `${BASE}/users?$filter=onPremisesSamAccountName eq '${sam}'&$select=displayName&$count=true`,
     DIRECTORY_OBJ:     (id)   => `${process.env.GRAPH_BASE_URL || 'https://graph.microsoft.com'}/v1.0/directoryObjects/${id}`,
 };

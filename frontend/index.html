@@ -21,6 +21,7 @@
     <button class="tab" data-tab="user-search">Utilisateur</button>
     <button class="tab" data-tab="autopatch">Sécurité</button>
     <button class="tab" data-tab="firewall">Firewall</button>
+    <button class="tab" data-tab="network">Réseau</button>
   </nav>
 
   <div class="status">
@@ -103,6 +104,10 @@
     <div id="v-autopatch" style="display:none">
       <div class="ap-header">
         <div class="ap-title">Autopatch — Deployment Rings</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="fw-last-update" id="ap-last-update"></span>
+          <button class="btn-search" id="ap-refresh" style="padding:6px 14px;font-size:12px">&#8635; Actualiser</button>
+        </div>
       </div>
       <div class="ap-add">
         <div class="ap-combo-wrap">
@@ -203,6 +208,76 @@
             </thead>
             <tbody id="fw-ipsec-body"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RÉSEAU ── -->
+    <div id="v-network" style="display:none">
+      <div class="net-header">
+        <div class="net-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/></svg>
+          Topologie réseau
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="fw-last-update" id="net-last-update"></span>
+          <button class="btn-search" id="net-refresh" style="padding:6px 14px;font-size:12px">&#8635; Actualiser</button>
+        </div>
+      </div>
+
+      <!-- Device locator -->
+      <div class="net-locate-bar">
+        <div class="search-box" style="flex:1;max-width:none">
+          <span class="search-ico">⌕</span>
+          <input id="net-locate-q" class="search" type="text"
+            placeholder="Localiser un appareil : IP, nom d'hôte ou adresse MAC…"
+            autocomplete="off">
+        </div>
+        <button class="btn-search" id="net-locate-btn">Localiser</button>
+      </div>
+      <div id="net-locate-result" style="display:none"></div>
+
+      <div id="net-loading" class="loading" style="display:none">
+        <div class="spinner"></div><span>Découverte du réseau…</span>
+      </div>
+      <div id="net-error" class="empty" style="display:none;padding:20px"></div>
+
+      <div id="net-canvas-wrap" style="display:none">
+        <!-- Breadcrumb navigation -->
+        <div id="net-breadcrumb" class="net-breadcrumb" style="display:none"></div>
+
+        <!-- SVG topology -->
+        <div class="net-svg-container">
+          <svg id="net-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+
+        <!-- Port detail panel -->
+        <div id="net-detail" class="net-detail-panel" style="display:none">
+          <div class="net-detail-head">
+            <div>
+              <div class="net-detail-title" id="net-detail-title">—</div>
+              <div class="net-detail-meta">
+                <span id="net-detail-type" class="net-detail-badge"></span>
+                <span id="net-detail-ip" class="net-detail-ip"></span>
+              </div>
+            </div>
+            <button class="panel-x" id="net-detail-close">✕</button>
+          </div>
+          <div class="net-ports-wrap">
+            <table class="net-ports-table">
+              <thead>
+                <tr>
+                  <th>Port</th>
+                  <th>Description</th>
+                  <th>Vitesse</th>
+                  <th>État</th>
+                  <th>↓ Reçu</th>
+                  <th>↑ Envoyé</th>
+                </tr>
+              </thead>
+              <tbody id="net-ports-body"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

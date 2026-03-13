@@ -18,6 +18,7 @@ const autopatchRouter = require('./routes/autopatch');
 const authRouter = require('./routes/auth');
 const teamviewerRouter = require('./routes/teamviewer');
 const firewallRouter   = require('./routes/firewall');
+const networkRouter    = require('./routes/network');
 
 
 const app = express();
@@ -90,6 +91,7 @@ app.use('/api/security', securityRouter);
 app.use('/api/autopatch', autopatchRouter);
 app.use('/api/teamviewer', teamviewerRouter);
 app.use('/api/firewall',  firewallRouter);
+app.use('/api/network',  networkRouter);
 
 // ── STATIC (frontend)
 app.use(express.static(path.join(__dirname, '../frontend')));

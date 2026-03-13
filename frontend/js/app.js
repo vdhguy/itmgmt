@@ -13,6 +13,10 @@
   let sortCol = 'deviceName', sortDir = 1; // 1=asc, -1=desc
   let autopatchMembers = [];      // Test ring (pour le panel appareil)
   let autopatchMembersLast = [];  // Last ring
+  let autopatchLoadedAt = 0;      // timestamp du dernier chargement
+  let networkTopology   = null;   // { nodes, edges }
+  let networkLoadedAt   = 0;
+  let netSelectedNode   = null;
 
   // ── UTILS
   const $ = id => document.getElementById(id);
@@ -554,20 +558,33 @@
   }
 
   // ── AUTOPATCH
-  async function loadAutopatch() {
-    $('ap-loading').style.display = 'flex';
-    $('ap-members-wrap').style.display = 'none';
+  async function loadAutopatch(force = false) {
+    const COOLDOWN = 5 * 60 * 1000; // 5 minutes
+    if (!force && autopatchLoadedAt && Date.now() - autopatchLoadedAt < COOLDOWN) return;
+    // Garder les données existantes visibles pendant le rechargement
+    const hasData = autopatchMembers.length || autopatchMembersLast.length;
+    if (!hasData) {
+      $('ap-loading').style.display = 'flex';
+      $('ap-members-wrap').style.display = 'none';
+    }
+    const refreshBtn = $('ap-refresh');
+    if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '…'; }
     try {
       [autopatchMembers, autopatchMembersLast] = await Promise.all([
         api('/api/autopatch/members?ring=test'),
         api('/api/autopatch/members?ring=last'),
       ]);
+      autopatchLoadedAt = Date.now();
+      const t = new Date(autopatchLoadedAt);
+      if ($('ap-last-update')) $('ap-last-update').textContent = `Mis à jour à ${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`;
     } catch(e) {
-      $('ap-loading').innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
+      if (!hasData) $('ap-loading').innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
+      if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Actualiser'; }
       return;
     }
     $('ap-loading').style.display = 'none';
     $('ap-members-wrap').style.display = '';
+    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Actualiser'; }
     renderAutopatch();
     populateAutopatchSelect();
   }
@@ -684,10 +701,18 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ azureADDeviceId, ring })
     });
-    [autopatchMembers, autopatchMembersLast] = await Promise.all([
-      api('/api/autopatch/members?ring=test'),
-      api('/api/autopatch/members?ring=last'),
-    ]);
+    // Update optimiste : ajoute localement sans attendre la propagation Azure AD
+    const device = devices.find(d => (d.azureADDeviceId || '').toLowerCase() === azureADDeviceId.toLowerCase());
+    if (device) {
+      const entry = { id: device.id, displayName: device.deviceName, deviceId: device.azureADDeviceId };
+      const devIdLow = azureADDeviceId.toLowerCase();
+      if (ring === 'test' && !autopatchMembers.some(m => (m.deviceId || '').toLowerCase() === devIdLow)) {
+        autopatchMembers.push(entry);
+      } else if (ring === 'last' && !autopatchMembersLast.some(m => (m.deviceId || '').toLowerCase() === devIdLow)) {
+        autopatchMembersLast.push(entry);
+      }
+    }
+    autopatchLoadedAt = 0; // force refresh au prochain chargement du tab
     renderAutopatch();
     populateAutopatchSelect();
   }
@@ -1048,6 +1073,428 @@
   }
 
   $('fw-refresh').addEventListener('click', loadFirewall);
+  $('ap-refresh').addEventListener('click', () => loadAutopatch(true));
+
+  // ── NETWORK ─────────────────────────────────────────────────────────────────
+  let netRootId  = 'fortigate';  // currently displayed root
+  let netNavPath = [];           // breadcrumb: [{id, label}, ...] ancestors
+
+  async function loadNetwork(force = false) {
+    // Avoid repeated cache fetches on fast tab switches (30s cooldown for cached loads)
+    const COOLDOWN = 30 * 1000;
+    if (!force && networkLoadedAt && Date.now() - networkLoadedAt < COOLDOWN) return;
+
+    const hasData = !!networkTopology;
+    if (!hasData) {
+      $('net-loading').style.display = 'flex';
+      $('net-canvas-wrap').style.display = 'none';
+    }
+    $('net-error').style.display = 'none';
+
+    const btn = $('net-refresh');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+    try {
+      // force=true → POST refresh (triggers full SNMP rediscovery)
+      // force=false → GET (returns cached topology instantly if available)
+      const data = force
+        ? await api('/api/network/topology/refresh', { method: 'POST' })
+        : await api('/api/network/topology');
+
+      networkTopology = data;
+      networkLoadedAt = Date.now();
+      netRootId  = 'fortigate';
+      netNavPath = [];
+
+      const ts = data.cachedAt ? new Date(data.cachedAt) : new Date();
+      const tsStr = ts.toLocaleDateString('fr-BE', { day:'2-digit', month:'2-digit' })
+                  + ' ' + ts.toLocaleTimeString('fr-BE', { hour:'2-digit', minute:'2-digit' });
+      const label = data.fromCache ? `Cache du ${tsStr}` : `Découverte ${tsStr}`;
+      if ($('net-last-update')) $('net-last-update').textContent = label;
+    } catch (e) {
+      $('net-loading').style.display = 'none';
+      $('net-error').textContent = `Erreur : ${e.message}`;
+      $('net-error').style.display = 'block';
+      if (btn) { btn.disabled = false; btn.textContent = '↻ Actualiser'; }
+      return;
+    }
+
+    $('net-loading').style.display = 'none';
+    $('net-canvas-wrap').style.display = '';
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Actualiser'; }
+    renderTopology();
+  }
+
+  // ── Device locator ──────────────────────────────────────────────────────────
+  async function locateDevice() {
+    const q   = ($('net-locate-q').value || '').trim();
+    const btn = $('net-locate-btn');
+    const out = $('net-locate-result');
+    if (!q) return;
+
+    btn.disabled = true; btn.textContent = '…';
+    out.style.display = '';
+    out.innerHTML = '<div class="net-locate-loading"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div><span>Recherche en cours…</span></div>';
+
+    try {
+      const data = await api(`/api/network/locate?q=${encodeURIComponent(q)}`);
+      renderLocateResult(data);
+    } catch (e) {
+      out.innerHTML = `<div class="net-locate-error">Erreur : ${e.message}</div>`;
+    } finally {
+      btn.disabled = false; btn.textContent = 'Localiser';
+    }
+  }
+
+  function renderLocateResult(data) {
+    const out = $('net-locate-result');
+    const macHtml = data.mac
+      ? `<span class="net-locate-mac">${data.mac.toUpperCase()}</span>`
+      : '<span class="net-locate-mac muted">—</span>';
+    const ipHtml = data.ip ? `<span class="net-locate-ip">${data.ip}</span>` : '';
+
+    if (!data.found) {
+      out.innerHTML = `<div class="net-locate-card net-locate-notfound">
+        <div class="net-locate-info">${ipHtml}${macHtml}</div>
+        <div class="net-locate-msg">${data.message || 'Appareil non trouvé sur les switchs'}</div>
+      </div>`;
+      return;
+    }
+
+    const rows = data.results.map(r => {
+      const st = r.operStatus === 'up'
+        ? '<span class="net-badge-up">up</span>'
+        : '<span class="net-badge-down">down</span>';
+      const alias = r.portAlias ? ` <span class="net-locate-alias">${r.portAlias}</span>` : '';
+      return `<tr>
+        <td class="net-locate-sw">${r.switch}</td>
+        <td class="net-port-name">${r.port}${alias}</td>
+        <td>${st}</td>
+        <td class="net-locate-swip">${r.switchIp}</td>
+      </tr>`;
+    }).join('');
+
+    out.innerHTML = `<div class="net-locate-card">
+      <div class="net-locate-info">${ipHtml}${macHtml}</div>
+      <table class="net-locate-table">
+        <thead><tr><th>Switch</th><th>Port</th><th>État</th><th>IP switch</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  $('net-locate-btn').addEventListener('click', locateDevice);
+  $('net-locate-q').addEventListener('keydown', e => { if (e.key === 'Enter') locateDevice(); });
+
+  // Build directed tree from netRootId, ignoring APs
+  function buildNetTree() {
+    if (!networkTopology) return null;
+    const { nodes, edges } = networkTopology;
+
+    // Only switches + firewall
+    const swNodes = nodes.filter(n => n.type !== 'ap');
+    const nodeMap = Object.fromEntries(swNodes.map(n => [n.id, n]));
+
+    // Undirected adjacency (switch/firewall only)
+    const adj = {};
+    for (const n of swNodes) adj[n.id] = [];
+    for (const e of edges) {
+      if (nodeMap[e.source] && nodeMap[e.target]) {
+        adj[e.source].push(e.target);
+        adj[e.target].push(e.source);
+      }
+    }
+
+    // BFS from netRootId → parent/children relationships
+    const children = {};
+    const visited  = new Set([netRootId]);
+    const queue    = [netRootId];
+    while (queue.length) {
+      const cur = queue.shift();
+      children[cur] = [];
+      for (const nb of (adj[cur] || [])) {
+        if (!visited.has(nb)) {
+          visited.add(nb);
+          children[cur].push(nb);
+          queue.push(nb);
+        }
+      }
+    }
+
+    // Recursive descendant count (switches only)
+    function countDesc(id) {
+      let c = 0;
+      for (const ch of (children[id] || [])) c += 1 + countDesc(ch);
+      return c;
+    }
+
+    return { nodeMap, children, countDesc };
+  }
+
+  function renderBreadcrumb() {
+    const bc = $('net-breadcrumb');
+    if (!bc) return;
+    if (netNavPath.length === 0) { bc.style.display = 'none'; return; }
+    bc.style.display = 'flex';
+    const allItems = [...netNavPath, { id: netRootId, label: netNodeLabel(netRootId) }];
+    bc.innerHTML = allItems.map((item, i) => {
+      if (i === allItems.length - 1)
+        return `<span class="net-bc-current">${item.label}</span>`;
+      return `<span class="net-bc-link" data-id="${item.id}" data-idx="${i}">${item.label}</span><span class="net-bc-sep"> › </span>`;
+    }).join('');
+    bc.querySelectorAll('.net-bc-link').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx);
+        netRootId  = el.dataset.id;
+        netNavPath = netNavPath.slice(0, idx);
+        $('net-detail').style.display = 'none';
+        renderTopology();
+      });
+    });
+  }
+
+  function netNodeLabel(id) {
+    if (!networkTopology) return id;
+    return networkTopology.nodes.find(n => n.id === id)?.label || id;
+  }
+
+  function svgEl(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+  function renderTopology() {
+    if (!networkTopology) return;
+    const tree = buildNetTree();
+    if (!tree) return;
+    const { nodeMap, children, countDesc } = tree;
+    const svg = $('net-svg');
+    if (!svg) return;
+
+    renderBreadcrumb();
+
+    const rootNode = nodeMap[netRootId];
+    if (!rootNode) return;
+
+    const childIds    = children[netRootId] || [];
+    const NW = 150, NH = 60, HGAP = 30, VGAP = 100;
+    const BADGE_H = 22; // extra height for expand badge below child nodes
+
+    // Positions: root at (0,0), children spread at level 1
+    const positions = { [netRootId]: { x: 0, y: 0 } };
+    if (childIds.length > 0) {
+      const totalW = childIds.length * NW + (childIds.length - 1) * HGAP;
+      childIds.forEach((id, i) => {
+        positions[id] = { x: i * (NW + HGAP) - totalW / 2 + NW / 2, y: NH + VGAP };
+      });
+    }
+
+    // ViewBox — add bottom padding for badges
+    const xs  = Object.values(positions).map(p => p.x);
+    const ys  = Object.values(positions).map(p => p.y);
+    const pad = 40;
+    const hasBadges = childIds.some(id => countDesc(id) > 0);
+    const vx = Math.min(...xs) - NW / 2 - pad;
+    const vy = Math.min(...ys) - NH / 2 - pad;
+    const vw = Math.max(...xs) - Math.min(...xs) + NW + pad * 2;
+    const vh = Math.max(...ys) - Math.min(...ys) + NH + pad + (hasBadges ? BADGE_H + 16 : pad);
+
+    svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`);
+    svg.setAttribute('width',  Math.max(vw, 600));
+    svg.setAttribute('height', Math.max(vh, 200));
+    svg.innerHTML = `<defs>
+      <filter id="nshadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.12"/>
+      </filter>
+    </defs>`;
+
+    // Helper: port label chip along an edge line
+    function addPortLabel(x, y, text) {
+      if (!text) return;
+      const g = svgEl('g');
+      const approxW = Math.max(text.length * 6.5, 30);
+      const bg = svgEl('rect');
+      bg.setAttribute('x', x - approxW / 2 - 3); bg.setAttribute('y', y - 10);
+      bg.setAttribute('width', approxW + 6); bg.setAttribute('height', 14); bg.setAttribute('rx', 3);
+      bg.setAttribute('class', 'net-port-label-bg');
+      g.appendChild(bg);
+      const t = svgEl('text');
+      t.setAttribute('x', x); t.setAttribute('y', y);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'middle');
+      t.setAttribute('class', 'net-port-label');
+      t.textContent = text;
+      g.appendChild(t);
+      svg.appendChild(g);
+    }
+
+    // Edges root → children (with port labels)
+    for (const childId of childIds) {
+      const s  = positions[netRootId];
+      const t  = positions[childId];
+      const x1 = s.x, y1 = s.y + NH / 2;
+      const x2 = t.x, y2 = t.y - NH / 2;
+
+      const line = svgEl('line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('class', 'net-edge');
+      svg.appendChild(line);
+
+      // Find matching edge for port labels
+      const edgeData = networkTopology.edges.find(e =>
+        (e.source === netRootId && e.target === childId) ||
+        (e.source === childId   && e.target === netRootId)
+      );
+      if (edgeData) {
+        // localPortName is always on the 'source' side of the stored edge
+        const rootPort  = edgeData.source === netRootId ? edgeData.localPortName  : edgeData.remotePortName;
+        const childPort = edgeData.source === childId   ? edgeData.localPortName  : edgeData.remotePortName;
+        // Place labels at 20% and 80% along the line
+        const t20x = x1 + (x2 - x1) * 0.20, t20y = y1 + (y2 - y1) * 0.20;
+        const t80x = x1 + (x2 - x1) * 0.80, t80y = y1 + (y2 - y1) * 0.80;
+        addPortLabel(t20x, t20y, rootPort);
+        addPortLabel(t80x, t80y, childPort);
+      }
+    }
+
+    // Nodes
+    for (const id of [netRootId, ...childIds]) {
+      const n   = nodeMap[id];
+      const pos = positions[id];
+      if (!n || !pos) continue;
+
+      const isRoot     = id === netRootId;
+      const descCount  = isRoot ? 0 : countDesc(id);
+      const hasDesc    = descCount > 0;
+
+      const g = svgEl('g');
+      const cls = ['net-node', `net-node-${n.type}`];
+      if (!n.reachable) cls.push('unreachable');
+      if (isRoot) cls.push('net-node-root');
+      g.setAttribute('class', cls.join(' '));
+      g.setAttribute('transform', `translate(${pos.x - NW / 2},${pos.y - NH / 2})`);
+      g.style.cursor = isRoot ? 'default' : 'pointer';
+
+      // Rect
+      const rect = svgEl('rect');
+      rect.setAttribute('width', NW); rect.setAttribute('height', NH); rect.setAttribute('rx', 8);
+      rect.setAttribute('filter', 'url(#nshadow)');
+      g.appendChild(rect);
+
+      // Icon (ASCII-safe symbols)
+      const ICONS = { firewall: '■', switch: '⊟' };
+      const iconEl = svgEl('text');
+      iconEl.setAttribute('x', 12); iconEl.setAttribute('y', 22);
+      iconEl.setAttribute('class', 'net-icon');
+      iconEl.textContent = ICONS[n.type] || '⊟';
+      g.appendChild(iconEl);
+
+      // Label
+      const label = svgEl('text');
+      label.setAttribute('x', NW / 2); label.setAttribute('y', 26);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('class', 'net-label');
+      label.textContent = n.label.length > 16 ? n.label.slice(0, 14) + '…' : n.label;
+      g.appendChild(label);
+
+      // IP
+      if (n.ip) {
+        const ipEl = svgEl('text');
+        ipEl.setAttribute('x', NW / 2); ipEl.setAttribute('y', 42);
+        ipEl.setAttribute('text-anchor', 'middle');
+        ipEl.setAttribute('class', 'net-ip');
+        ipEl.textContent = n.ip;
+        g.appendChild(ipEl);
+      }
+
+      // Status dot (top-right)
+      const dot = svgEl('circle');
+      dot.setAttribute('cx', NW - 10); dot.setAttribute('cy', 10); dot.setAttribute('r', 5);
+      dot.setAttribute('class', n.reachable === true  ? 'net-status-dot-up'
+                               : n.reachable === false ? 'net-status-dot-down'
+                               : 'net-status-dot-null');
+      g.appendChild(dot);
+
+      // "Has descendants" expand badge (below node, only on children with sub-switches)
+      if (!isRoot && hasDesc) {
+        const badgeW = 40;
+        const bg = svgEl('rect');
+        bg.setAttribute('x', NW / 2 - badgeW / 2);
+        bg.setAttribute('y', NH + 6);
+        bg.setAttribute('width', badgeW); bg.setAttribute('height', 18); bg.setAttribute('rx', 9);
+        bg.setAttribute('class', 'net-expand-badge');
+        g.appendChild(bg);
+
+        const bt = svgEl('text');
+        bt.setAttribute('x', NW / 2); bt.setAttribute('y', NH + 18);
+        bt.setAttribute('text-anchor', 'middle');
+        bt.setAttribute('class', 'net-expand-text');
+        bt.textContent = `▾ ${descCount}`;
+        g.appendChild(bt);
+      }
+
+      if (!isRoot) g.addEventListener('click', () => onNetNodeClick(n));
+      svg.appendChild(g);
+    }
+  }
+
+  async function onNetNodeClick(node) {
+    // Push current root to breadcrumb and drill down
+    netNavPath.push({ id: netRootId, label: netNodeLabel(netRootId) });
+    netRootId = node.id;
+    renderTopology();
+
+    // Show port details
+    $('net-detail-title').textContent = node.label;
+    $('net-detail-ip').textContent    = node.ip || '—';
+    $('net-detail-type').textContent  = 'Switch';
+    $('net-detail').style.display = '';
+
+    if (node.ip) {
+      $('net-ports-body').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px">Chargement…</td></tr>';
+      try {
+        const data = await api(`/api/network/switch/${encodeURIComponent(node.label)}/ports`);
+        renderNetPorts(data.ports);
+      } catch (e) {
+        $('net-ports-body').innerHTML = `<tr><td colspan="6" style="color:var(--red);padding:12px">${e.message}</td></tr>`;
+      }
+    } else {
+      $('net-ports-body').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text-muted)">Switch non résolu — vérifiez le DNS.</td></tr>';
+    }
+  }
+
+  function renderNetPorts(ports) {
+    const tbody = $('net-ports-body');
+    if (!ports || !ports.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text-muted)">Aucun port.</td></tr>';
+      return;
+    }
+    // Physical ports only (exclude loopback, vlan, tunnel, mgmt)
+    const physical = ports.filter(p => !/^(loopback|vlan|tunnel|oob|mgmt|lo|cpu)/i.test(p.name));
+
+    const fmtSpeed = s => !s ? '—' : s >= 1000 ? `${s / 1000} Gb` : `${s} Mb`;
+    const fmtOct   = b => {
+      if (!b) return '—';
+      const mb = b / 1048576;
+      return mb >= 1000 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
+    };
+
+    tbody.innerHTML = physical.map(p => {
+      const op  = p.operStatus  === 'up';
+      const adm = p.adminStatus === 'up';
+      const badge = op   ? '<span class="net-badge-up">up</span>'
+                  : !adm ? '<span class="net-badge-disabled">désactivé</span>'
+                  :         '<span class="net-badge-down">down</span>';
+      return `<tr>
+        <td class="net-port-name">${p.name}</td>
+        <td class="net-port-alias">${p.alias || '—'}</td>
+        <td class="net-port-speed">${fmtSpeed(p.speed)}</td>
+        <td>${badge}</td>
+        <td class="net-port-traffic">${fmtOct(p.inOctets)}</td>
+        <td class="net-port-traffic">${fmtOct(p.outOctets)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  $('net-refresh').addEventListener('click', () => loadNetwork(true));
+  $('net-detail-close').addEventListener('click', () => { $('net-detail').style.display = 'none'; });
 
   // ── TABS
   document.querySelectorAll('.tab').forEach(btn => {
@@ -1060,8 +1507,10 @@
       $('v-user-search').style.display = tab==='user-search' ? '' : 'none';
       $('v-autopatch').style.display   = tab==='autopatch'   ? '' : 'none';
       $('v-firewall').style.display    = tab==='firewall'    ? '' : 'none';
-      if (tab === 'autopatch') loadAutopatch();
+      $('v-network').style.display     = tab==='network'     ? '' : 'none';
+      if (tab === 'autopatch') loadAutopatch(false);
       if (tab === 'firewall')  loadFirewall();
+      if (tab === 'network')   loadNetwork(false);
     });
   });
 
